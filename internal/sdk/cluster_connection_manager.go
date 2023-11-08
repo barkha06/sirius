@@ -112,9 +112,6 @@ func (cm *ConnectionManager) getClusterObject(clusterConfig *ClusterConfig) ([]*
 					KVTimeout:        time.Duration(clusterConfig.TimeoutsConfig.KVTimeout) * time.Second,
 					KVDurableTimeout: time.Duration(clusterConfig.TimeoutsConfig.KVDurableTimeout) * time.Second,
 				},
-				CircuitBreakerConfig: gocb.CircuitBreakerConfig{
-					Disabled: true,
-				},
 				CompressionConfig: gocb.CompressionConfig{
 					Disabled: clusterConfig.CompressionConfig.Disabled,
 					MinSize:  clusterConfig.CompressionConfig.MinSize,
@@ -177,7 +174,7 @@ func (cm *ConnectionManager) GetCollection(clusterConfig *ClusterConfig, bucketN
 	}
 
 	if len(collectionObjectList) == 0 {
-		return []*CollectionObject{}, errors.New("empty list of collectionObject")
+		return []*CollectionObject{}, errors.New("SDK Failed to connect to cluster")
 	}
 	return collectionObjectList, nil
 

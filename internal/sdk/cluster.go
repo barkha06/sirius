@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/couchbase/gocb/v2"
 	"github.com/couchbaselabs/sirius/internal/task_errors"
+	"log"
 	"time"
 )
 
@@ -60,6 +61,7 @@ func (c *ClusterObject) getBucketObject(bucketName string) (*BucketObject, error
 	if !ok {
 		bucket := c.Cluster.Bucket(bucketName)
 		if err := bucket.WaitUntilReady(WaitUnityReadyTime*time.Second, nil); err != nil {
+			log.Println("bucket waitUntilReadyTimedOut", bucketName)
 			return nil, err
 		}
 
