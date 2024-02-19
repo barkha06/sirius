@@ -1,10 +1,8 @@
-package bulk_loading_cb
+package bulk_loading
 
 import (
-	"errors"
 	"fmt"
-	"github.com/couchbaselabs/sirius/internal/cb_sdk"
-	"github.com/couchbaselabs/sirius/internal/task_errors"
+	"github.com/couchbaselabs/sirius/internal/err_sirius"
 	"github.com/couchbaselabs/sirius/internal/task_state"
 	"github.com/couchbaselabs/sirius/internal/tasks"
 )
@@ -24,26 +22,20 @@ func (r *RetryExceptions) Describe() string {
 		"RetryAttempts is the number of retry attempts.\n"
 }
 
-func (r *RetryExceptions) Do() error {
+func (r *RetryExceptions) Do() {
 	if r.req.ContextClosed() {
-		return errors.New("req is cleared")
+		return
 	}
 
-	c, e := r.Task.GetCollectionObject()
-	if e != nil {
-		r.Task.TearUp()
-		return nil
-	}
 	r.Task.SetException(r.Exceptions)
-	r.Task.PostTaskExceptionHandling(c)
-	r.Task.TearUp()
-	return nil
+	r.Task.PostTaskExceptionHandling()
+	_ = r.Task.TearUp()
 }
 
 func (r *RetryExceptions) Config(req *tasks.Request, reRun bool) (int64, error) {
 	r.req = req
 	if r.req == nil {
-		return 0, task_errors.ErrRequestIsNil
+		return 0, err_sirius.RequestIsNil
 	}
 
 	if r.req.Tasks == nil {
@@ -70,15 +62,15 @@ func (r *RetryExceptions) Config(req *tasks.Request, reRun bool) (int64, error) 
 
 }
 
-func (r *RetryExceptions) CollectionIdentifier() string {
-	return r.Task.CollectionIdentifier()
+func (r *RetryExceptions) MetaDataIdentifier() string {
+	return r.Task.MetaDataIdentifier()
 }
 
 func (r *RetryExceptions) CheckIfPending() bool {
 	return r.Task.CheckIfPending()
 }
 
-func (r *RetryExceptions) PostTaskExceptionHandling(_ *cb_sdk.CollectionObject) {
+func (r *RetryExceptions) PostTaskExceptionHandling() {
 
 }
 
@@ -87,10 +79,6 @@ func (r *RetryExceptions) TearUp() error {
 }
 func (r *RetryExceptions) MatchResultSeed(resultSeed string) (bool, error) {
 	return r.Task.MatchResultSeed(resultSeed)
-}
-
-func (r *RetryExceptions) GetCollectionObject() (*cb_sdk.CollectionObject, error) {
-	return r.Task.GetCollectionObject()
 }
 
 func (r *RetryExceptions) SetException(exceptions Exceptions) {

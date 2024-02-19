@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/couchbaselabs/sirius/internal/cb_sdk"
+	"github.com/couchbaselabs/sirius/internal/db"
 	"github.com/couchbaselabs/sirius/internal/docgenerator"
 	"github.com/couchbaselabs/sirius/internal/task_state"
 	"golang.org/x/sync/errgroup"
@@ -26,12 +26,12 @@ type SDKTiming struct {
 }
 
 type FailedDocument struct {
-	SDKTiming   SDKTiming `json:"sdkTimings" doc:"true"`
-	DocId       string    `json:"key" doc:"true"`
-	Status      bool      `json:"status"  doc:"true"`
-	Cas         uint64    `json:"cas"  doc:"true"`
-	ErrorString string    `json:"errorString"  doc:"true"`
-	Offset      int64     `json:"Offset" doc:"false"`
+	SDKTiming   SDKTiming      `json:"sdkTimings" doc:"true"`
+	DocId       string         `json:"key" doc:"true"`
+	Status      bool           `json:"status"  doc:"true"`
+	Extra       map[string]any `json:"extra" doc:"true""`
+	ErrorString string         `json:"errorString"  doc:"true"`
+	Offset      int64          `json:"Offset" doc:"false"`
 }
 
 type SingleOperationResult struct {
@@ -51,7 +51,7 @@ type ResultHelper struct {
 	docId    string
 	err      error
 	status   bool
-	cas      uint64
+	extra    map[string]any
 	offset   int64
 }
 
@@ -106,7 +106,7 @@ func ConfigTaskResult(operation string, resultSeed int64) *TaskResult {
 }
 
 // IncrementFailure saves the failure count of doc loading operation.
-func (t *TaskResult) IncrementFailure(initTime, docId string, err error, status bool, cas uint64,
+func (t *TaskResult) IncrementFailure(initTime, docId string, err error, status bool, extra map[string]any,
 	offset int64) {
 
 	t.ResultChannel <- ResultHelper{
@@ -114,7 +114,7 @@ func (t *TaskResult) IncrementFailure(initTime, docId string, err error, status 
 		docId:    docId,
 		err:      err,
 		status:   status,
-		cas:      cas,
+		extra:    extra,
 		offset:   offset,
 	}
 }
@@ -123,7 +123,7 @@ func (t *TaskResult) IncrementFailure(initTime, docId string, err error, status 
 func (t *TaskResult) IncrementQueryFailure(query string, err error) {
 	t.lock.Lock()
 	t.Failure++
-	v, errorString := cb_sdk.CheckSDKException(err)
+	v, errorString := db.CheckSDKException(err)
 	t.QueryError[v] = append(t.QueryError[v], FailedQuery{
 		Query:       query,
 		ErrorString: errorString,
@@ -206,7 +206,7 @@ func (t *TaskResult) FailWholeBulkOperation(start, end int64, err error, state *
 		wg.Go(func() error {
 			offset := <-dataChannel
 			docId := gen.BuildKey(offset + seed)
-			t.IncrementFailure(initTime, docId, err, false, 0, offset)
+			t.IncrementFailure(initTime, docId, err, false, nil, offset)
 			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: offset}
 			<-routineLimiter
 			return nil
@@ -273,7 +273,7 @@ func (t *TaskResult) StoreResultList(resultList []ResultHelper) {
 	t.lock.Lock()
 	for _, x := range resultList {
 		t.Failure++
-		v, errorString := cb_sdk.CheckSDKException(x.err)
+		v, errorString := db.CheckSDKException(x.err)
 		t.BulkError[v] = append(t.BulkError[v], FailedDocument{
 			SDKTiming: SDKTiming{
 				SendTime: x.initTime,
@@ -281,7 +281,7 @@ func (t *TaskResult) StoreResultList(resultList []ResultHelper) {
 			},
 			DocId:       x.docId,
 			Status:      x.status,
-			Cas:         x.cas,
+			Extra:       x.extra,
 			ErrorString: errorString,
 			Offset:      x.offset,
 		})
