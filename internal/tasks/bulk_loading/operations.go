@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+
 	"github.com/couchbaselabs/sirius/internal/db"
 	"github.com/couchbaselabs/sirius/internal/docgenerator"
 	"github.com/couchbaselabs/sirius/internal/task_result"
@@ -41,7 +42,7 @@ func insertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		key := offset + seed
 		docId := gen.BuildKey(key)
 		fake := faker.NewWithSeed(rand.NewSource(int64(key)))
-		doc, err1 := gen.Template.GenerateDocument(&fake, operationConfig.DocSize)
+		doc, err1 := gen.Template.GenerateDocument(docId, &fake, operationConfig.DocSize)
 		initTime := time.Now().UTC().Format(time.RFC850)
 		if err1 != nil {
 			result.IncrementFailure(initTime, docId, err1, false, nil, offset)
@@ -104,7 +105,7 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 			key := offset + seed
 			docId := gen.BuildKey(key)
 			fake := faker.NewWithSeed(rand.NewSource(int64(key)))
-			doc, err1 := gen.Template.GenerateDocument(&fake, operationConfig.DocSize)
+			doc, err1 := gen.Template.GenerateDocument(docId, &fake, operationConfig.DocSize)
 
 			if err1 != nil {
 				result.IncrementFailure(initTime, docId, err1, false, nil, offset)
@@ -149,7 +150,7 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 			key := offset + seed
 			docId := gen.BuildKey(key)
 			fake := faker.NewWithSeed(rand.NewSource(int64(key)))
-			doc, err1 := gen.Template.GenerateDocument(&fake, operationConfig.DocSize)
+			doc, err1 := gen.Template.GenerateDocument(docId, &fake, operationConfig.DocSize)
 
 			if err1 != nil {
 				result.IncrementFailure(initTime, docId, err1, false, nil, offset)
@@ -212,7 +213,7 @@ func upsertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		fake := faker.NewWithSeed(rand.NewSource(int64(key)))
 		initTime := time.Now().UTC().Format(time.RFC850)
 
-		originalDoc, err1 := gen.Template.GenerateDocument(&fake, operationConfig.DocSize)
+		originalDoc, err1 := gen.Template.GenerateDocument(docId, &fake, operationConfig.DocSize)
 		if err1 != nil {
 			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: offset}
 			result.IncrementFailure(initTime, docId, err1, false, nil, offset)

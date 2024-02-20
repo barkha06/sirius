@@ -3,10 +3,12 @@ package db
 import (
 	"errors"
 	"fmt"
-	"github.com/couchbase/gocb/v2"
-	"github.com/couchbaselabs/sirius/internal/cb_sdk"
-	"github.com/couchbaselabs/sirius/internal/template"
+	"log"
 	"time"
+
+	"github.com/barkha06/sirius/internal/cb_sdk"
+	"github.com/barkha06/sirius/internal/template"
+	"github.com/couchbase/gocb/v2"
 )
 
 type perDocResult struct {
@@ -905,6 +907,7 @@ func (c *Couchbase) CreateBulk(connStr, username, password string, keyValues []K
 	}
 
 	var bulkOp []gocb.BulkOp
+
 	keyToOffset := make(map[string]int64)
 
 	for _, x := range keyValues {
@@ -939,6 +942,13 @@ func (c *Couchbase) CreateBulk(connStr, username, password string, keyValues []K
 			result.AddResult(insertOp.ID, insertOp.Value, nil, true, uint64(insertOp.Result.Cas()),
 				keyToOffset[insertOp.ID])
 		}
+		//if mutationResults[x.Key].err != nil {
+		//	result.AddResult(x.Key, x.Doc, mutationResults[x.Key].err, false,
+		//		uint64(mutationResults[x.Key].result.Cas()))
+		//} else {
+		//	result.AddResult(x.Key, x.Doc, nil, true, uint64(mutationResults[x.Key].result.Cas()))
+		//}
+
 	}
 	return result
 }
@@ -1215,3 +1225,4 @@ func (c *Couchbase) TouchBulk(connStr, username, password string, keyValues []Ke
 	}
 	return result
 }
+

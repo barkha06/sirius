@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/couchbaselabs/sirius/internal/sdk_mongo"
+	"github.com/barkha06/sirius/internal/sdk_mongo"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -326,6 +326,26 @@ func (m Mongo) Close(connStr string) error {
 		return err
 	}
 	return nil
+}
+
+func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
