@@ -118,7 +118,7 @@ func (l *loadingTask) Run() {
 	case tasks.BulkUpsertOperation:
 		{
 			bulkUpsertDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
-				l.databaseInfo, l.extra, l.wg)
+				l.databaseInfo, l.extra, l.req, l.identifier, l.wg)
 		}
 	case tasks.BulkDeleteOperation:
 		{
@@ -128,6 +128,11 @@ func (l *loadingTask) Run() {
 	case tasks.BulkReadOperation:
 		{
 			bulkReadDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
+				l.databaseInfo, l.extra, l.wg)
+		}
+	case tasks.BulkTouchOperation:
+		{
+			bulkTouchDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
 				l.databaseInfo, l.extra, l.wg)
 		}
 

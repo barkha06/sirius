@@ -30,7 +30,7 @@ type KeyStates struct {
 
 type TaskState struct {
 	ResultSeed   int64              `json:"resultSeed"`
-	KeyStates    KeyStates          `json:"keyStates"`
+	KeyStates    map[int64]int      `json:"keyStates"`
 	StateChannel chan StateHelper   `json:"-"`
 	ctx          context.Context    `json:"-"`
 	cancel       context.CancelFunc `json:"-"`
@@ -51,6 +51,7 @@ func ConfigTaskState(resultSeed int64) *TaskState {
 	} else {
 		ts = &TaskState{
 			ResultSeed:   resultSeed,
+			KeyStates:    make(map[int64]int),
 			StateChannel: make(chan StateHelper, StateChannelLimit),
 			ctx:          ctx,
 			cancel:       cancel,
@@ -80,52 +81,6 @@ func (t *TaskState) SetupStoringKeys() {
 	t.ctx = ctx
 	t.cancel = cancel
 	t.StoreState()
-}
-
-// AddOffsetToCompleteSet will add offset to Complete set
-func (t *TaskState) AddOffsetToCompleteSet(offset int64) {
-	t.KeyStates.Completed = append(t.KeyStates.Completed, offset)
-}
-
-// AddRangeToCompleteSet will add a range of offset to Complete set
-func (t *TaskState) AddRangeToCompleteSet(start, end int64) {
-	for i := start; i <= end; i++ {
-		t.KeyStates.Completed = append(t.KeyStates.Completed, i)
-	}
-}
-
-// AddOffsetToErrSet will add offset to Error set
-func (t *TaskState) AddOffsetToErrSet(offset int64) {
-	t.KeyStates.Err = append(t.KeyStates.Err, offset)
-}
-
-// AddRangeToErrSet will add a range of offset to Error set
-func (t *TaskState) AddRangeToErrSet(start, end int64) {
-	for i := start; i <= end; i++ {
-		t.KeyStates.Err = append(t.KeyStates.Err, i)
-	}
-}
-
-// ReturnCompletedOffset returns a lookup table for searching completed offsets
-func (t *TaskState) ReturnCompletedOffset() map[int64]struct{} {
-	//defer t.lock.Unlock()
-	//t.lock.lock()
-	completed := make(map[int64]struct{})
-	for _, v := range t.KeyStates.Completed {
-		completed[v] = struct{}{}
-	}
-	return completed
-}
-
-// ReturnErrOffset returns a lookup table for searching  error offsets
-func (t *TaskState) ReturnErrOffset() map[int64]struct{} {
-	//defer t.lock.Unlock()
-	//t.lock.lock()
-	err := make(map[int64]struct{})
-	for _, v := range t.KeyStates.Err {
-		err[v] = struct{}{}
-	}
-	return err
 }
 
 // StoreState will receive the offsets on dataChannel after every " d " durations.
@@ -180,7 +135,7 @@ func (t *TaskState) StoreState() {
 func (t *TaskState) StoreCompleted(completed []int64) {
 	t.lock.Lock()
 	for _, offset := range completed {
-		t.AddOffsetToCompleteSet(offset)
+		t.KeyStates[offset] = COMPLETED
 	}
 	t.lock.Unlock()
 }
@@ -189,7 +144,7 @@ func (t *TaskState) StoreCompleted(completed []int64) {
 func (t *TaskState) StoreError(err []int64) {
 	t.lock.Lock()
 	for _, offset := range err {
-		t.AddOffsetToErrSet(offset)
+		t.KeyStates[offset] = ERR
 	}
 	t.lock.Unlock()
 }
@@ -202,16 +157,6 @@ func (t *TaskState) StopStoringState() {
 	}
 	t.cancel()
 	time.Sleep(1 * time.Second)
-}
-
-// ClearCompletedKeyStates clears the Completed key state
-func (t *TaskState) ClearCompletedKeyStates() {
-	t.KeyStates.Completed = t.KeyStates.Completed[:0]
-}
-
-// ClearErrorKeyStates clears the Error key state
-func (t *TaskState) ClearErrorKeyStates() {
-	t.KeyStates.Err = t.KeyStates.Err[:0]
 }
 
 func (t *TaskState) SaveTaskSateOnDisk() error {
@@ -229,24 +174,6 @@ func (t *TaskState) SaveTaskSateOnDisk() error {
 		return err
 	}
 	return nil
-}
-
-func (t *TaskState) MakeCompleteKeyFromMap(maps map[int64]struct{}) {
-	defer t.lock.Unlock()
-	t.lock.Lock()
-	t.ClearCompletedKeyStates()
-	for offset, _ := range maps {
-		t.KeyStates.Completed = append(t.KeyStates.Completed, offset)
-	}
-}
-
-func (t *TaskState) MakeErrorKeyFromMap(maps map[int64]struct{}) {
-	defer t.lock.Unlock()
-	t.lock.Lock()
-	t.ClearErrorKeyStates()
-	for offset, _ := range maps {
-		t.KeyStates.Err = append(t.KeyStates.Err, offset)
-	}
 }
 
 // ReadStateFromFile reads the task state stored on a file.

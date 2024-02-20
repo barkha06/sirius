@@ -2,6 +2,7 @@ package bulk_loading
 
 import (
 	"encoding/json"
+	"github.com/bgadrian/fastfaker/faker"
 	"github.com/couchbaselabs/sirius/internal/cb_sdk"
 	"github.com/couchbaselabs/sirius/internal/db"
 	"github.com/couchbaselabs/sirius/internal/docgenerator"
@@ -9,7 +10,6 @@ import (
 	"github.com/couchbaselabs/sirius/internal/task_result"
 	"github.com/couchbaselabs/sirius/internal/task_state"
 	"github.com/couchbaselabs/sirius/internal/tasks"
-	"github.com/jaswdr/faker"
 	"golang.org/x/exp/slices"
 	"log"
 )
@@ -219,7 +219,7 @@ func retracePreviousMutations(r *tasks.Request, collectionIdentifier string, off
 	r.Lock()
 	for i := range r.Tasks {
 		td := r.Tasks[i]
-		if td.Operation == tasks.UpsertOperation {
+		if td.Operation == tasks.UpsertOperation || td.Operation == tasks.BulkUpsertOperation {
 			if tempX, ok := td.Task.(BulkTask); ok {
 				u, ok := tempX.(*GenericLoadingTask)
 				if ok {
@@ -231,10 +231,11 @@ func retracePreviousMutations(r *tasks.Request, collectionIdentifier string, off
 						if u.State == nil {
 							u.State = task_state.ConfigTaskState(resultSeed)
 						}
-						comOffset := u.State.ReturnCompletedOffset()
-						if _, ok := comOffset[offset]; ok {
-							doc, _ = gen.Template.UpdateDocument(u.OperationConfig.FieldsToChange, doc,
-								u.OperationConfig.DocSize, fake)
+						if v, ok1 := u.State.KeyStates[offset]; ok1 {
+							if v == 1 {
+								doc, _ = gen.Template.UpdateDocument(u.OperationConfig.FieldsToChange, doc,
+									u.OperationConfig.DocSize, fake)
+							}
 						}
 					}
 
@@ -269,12 +270,13 @@ func retracePreviousSubDocMutations(r *tasks.Request, collectionIdentifier strin
 						if u.State == nil {
 							u.State = task_state.ConfigTaskState(resultSeed)
 						}
-						errOffset := u.State.ReturnErrOffset()
-						if _, ok := errOffset[offset]; ok {
-							continue
-						} else {
-							result = gen.Template.GenerateSubPathAndValue(fake, u.OperationConfig.DocSize)
+
+						if v, ok2 := u.State.KeyStates[offset]; ok2 {
+							if v == 1 {
+								result = gen.Template.GenerateSubPathAndValue(fake, u.OperationConfig.DocSize)
+							}
 						}
+
 					}
 				}
 			}
