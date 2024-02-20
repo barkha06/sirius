@@ -1,7 +1,6 @@
-package bulk_loading
+package tasks
 
 import (
-	"errors"
 	"fmt"
 	"github.com/couchbaselabs/sirius/internal/db"
 	"github.com/couchbaselabs/sirius/internal/docgenerator"
@@ -9,7 +8,6 @@ import (
 	"github.com/couchbaselabs/sirius/internal/meta_data"
 	"github.com/couchbaselabs/sirius/internal/task_result"
 	"github.com/couchbaselabs/sirius/internal/task_state"
-	"github.com/couchbaselabs/sirius/internal/tasks"
 	"github.com/couchbaselabs/sirius/internal/template"
 	"golang.org/x/sync/errgroup"
 	"log"
@@ -22,7 +20,7 @@ import (
 
 type GenericLoadingTask struct {
 	IdentifierToken string `json:"identifierToken" doc:"true"`
-	tasks.DatabaseInformation
+	DatabaseInformation
 	ResultSeed      int64                         `json:"resultSeed" doc:"false"`
 	TaskPending     bool                          `json:"taskPending" doc:"false"`
 	State           *task_state.TaskState         `json:"State" doc:"false"`
@@ -31,7 +29,7 @@ type GenericLoadingTask struct {
 	Operation       string                        `json:"operation" doc:"false"`
 	Result          *task_result.TaskResult       `json:"-" doc:"false"`
 	gen             *docgenerator.Generator       `json:"-" doc:"false"`
-	req             *tasks.Request                `json:"-" doc:"false"`
+	req             *Request                      `json:"-" doc:"false"`
 	rerun           bool                          `json:"-" doc:"false"`
 	lock            sync.Mutex                    `json:"-" doc:"false"`
 }
@@ -56,7 +54,7 @@ func (t *GenericLoadingTask) CheckIfPending() bool {
 }
 
 // Config configures  the insert task
-func (t *GenericLoadingTask) Config(req *tasks.Request, reRun bool) (int64, error) {
+func (t *GenericLoadingTask) Config(req *Request, reRun bool) (int64, error) {
 	t.TaskPending = true
 	t.req = req
 
@@ -104,8 +102,13 @@ func (t *GenericLoadingTask) Config(req *tasks.Request, reRun bool) (int64, erro
 		log.Println("retrying :- ", t.Operation, t.IdentifierToken, t.ResultSeed)
 	}
 
-	t.State = task_state.ConfigTaskState(t.ResultSeed)
-	t.Result = task_result.ConfigTaskResult(t.Operation, t.ResultSeed)
+	if t.State == nil {
+		t.State = task_state.ConfigTaskState(t.ResultSeed)
+	}
+	if t.State.StateChannel == nil {
+		t.State.SetupStoringKeys()
+	}
+
 	t.gen = docgenerator.ConfigGenerator(
 		t.OperationConfig.KeySize,
 		t.OperationConfig.DocSize,
@@ -117,14 +120,15 @@ func (t *GenericLoadingTask) Config(req *tasks.Request, reRun bool) (int64, erro
 func (t *GenericLoadingTask) TearUp() error {
 
 	t.Result.StopStoringResult()
+	t.Result.Success = t.OperationConfig.End - t.OperationConfig.Start - t.Result.Failure
 	if err := t.Result.SaveResultIntoFile(); err != nil {
-		log.Println("not able to save Result into ", t.ResultSeed, t.Operation)
+		log.Println("not able to save Result into ", t.MetaDataIdentifier(), " ", t.ResultSeed, " ", t.Operation)
 	}
 	t.Result = nil
 
 	t.State.StopStoringState()
 	if err := t.State.SaveTaskSateOnDisk(); err != nil {
-		log.Println("Error in storing TASK State on DISK")
+		log.Println("not able to save state into ", t.MetaDataIdentifier(), " ", t.ResultSeed, " ", t.Operation)
 	}
 
 	t.TaskPending = false
@@ -132,6 +136,8 @@ func (t *GenericLoadingTask) TearUp() error {
 }
 
 func (t *GenericLoadingTask) Do() {
+
+	t.Result = task_result.ConfigTaskResult(t.Operation, t.ResultSeed)
 
 	database, err := db.ConfigDatabase(t.DBType)
 	if err != nil {
@@ -151,8 +157,6 @@ func (t *GenericLoadingTask) Do() {
 	}
 
 	loadDocumentsInBatches(t)
-
-	t.Result.Success = t.OperationConfig.End - t.OperationConfig.Start - t.Result.Failure
 
 	_ = t.TearUp()
 }
@@ -175,23 +179,27 @@ func loadDocumentsInBatches(task *GenericLoadingTask) {
 	numOfBatches := int64(0)
 
 	// default batch size is calculated by dividing the total operations in equal quantity to each thread.
-	batchSize := (task.OperationConfig.End - task.OperationConfig.Start) / int64(tasks.MaxThreads)
+	batchSize := int64(5000)
 
 	// if we are using sdk Batching call, then fetch the batch size from extras.
 	// current default value of a batch for SDK batching is 100 but will be picked from os.env
-	if tasks.CheckBulkOperation(task.Operation) {
-		if task.Extra.SDKBatchSize > 0 {
-			batchSize = (task.OperationConfig.End - task.OperationConfig.Start) / int64(task.Extra.SDKBatchSize)
+	//if CheckBulkOperation(task.Operation) {
+	if task.Extra.SDKBatchSize > 0 {
+		batchSize = (task.OperationConfig.End - task.OperationConfig.Start) / int64(task.Extra.SDKBatchSize)
+	} else {
+		envBatchSize := os.Getenv("sirius_sdk_batch_size")
+		if len(envBatchSize) == 0 {
+			batchSize = 100
 		} else {
-			envBatchSize := os.Getenv("sirius_sdk_batch_size")
-			if len(envBatchSize) == 0 {
-				batchSize = 100
-			} else {
-				if x, e := strconv.Atoi(envBatchSize); e != nil {
-					batchSize = int64(x)
-				}
+			if x, e := strconv.Atoi(envBatchSize); e != nil {
+				batchSize = int64(x)
 			}
 		}
+		//}
+	}
+
+	if batchSize > (task.OperationConfig.End-task.OperationConfig.Start)/int64(MaxThreads) {
+		batchSize = (task.OperationConfig.End - task.OperationConfig.Start) / int64(MaxThreads)
 	}
 
 	if batchSize > 0 {
@@ -199,6 +207,7 @@ func loadDocumentsInBatches(task *GenericLoadingTask) {
 	}
 	remainingItems := (task.OperationConfig.End - task.OperationConfig.Start) - (numOfBatches * batchSize)
 
+	t1 := time.Now()
 	for i := int64(0); i < numOfBatches; i++ {
 		batchStart := i * batchSize
 		batchEnd := (i + 1) * batchSize
@@ -241,167 +250,71 @@ func loadDocumentsInBatches(task *GenericLoadingTask) {
 	}
 
 	wg.Wait()
+	log.Println("result ", task.ResultSeed, " time took: ", time.Now().Sub(t1))
 	log.Println("completed :- ", task.Operation, task.IdentifierToken, task.ResultSeed)
-}
 
-// loadBatch will enqueue the batch to thread pool. if the queue is full,
-// it will wait for sometime any thread to pick it up.
-func loadBatch(task *GenericLoadingTask, t *loadingTask, batchStart int64, batchEnd int64) {
-	retryBatchCounter := 10
-	for ; retryBatchCounter > 0; retryBatchCounter-- {
-		if err := tasks.Pool.Execute(t); err == nil {
-			break
-		}
-		time.Sleep(1 * time.Minute)
-	}
-	if retryBatchCounter == 0 {
-		task.Result.FailWholeBulkOperation(batchStart, batchEnd, errors.New("internal error, "+
-			"sirius is overloaded"), task.State, task.gen, task.MetaData.Seed)
-	}
 }
 
 func (t *GenericLoadingTask) PostTaskExceptionHandling() {
 
-	if t.Result == nil {
-		t.Result = task_result.ConfigTaskResult(t.Operation, t.ResultSeed)
-	}
 	if t.State == nil {
 		t.State = task_state.ConfigTaskState(t.ResultSeed)
 	}
-	t.Result.StopStoringResult()
 	t.State.StopStoringState()
 
-	if t.OperationConfig.Exceptions.RetryAttempts <= 0 {
-		return
-	}
-
-	// Get all the errorOffset
-	errorOffsetMaps := t.State.ReturnErrOffset()
-	// Get all the completed offset
-	completedOffsetMaps := t.State.ReturnCompletedOffset()
-
 	// For the offset in ignore exceptions :-> move them from error to completed
-	shiftErrToCompletedOnIgnore(t.OperationConfig.Exceptions.IgnoreExceptions, t.Result, errorOffsetMaps,
-		completedOffsetMaps)
+	shiftErrToCompletedOnIgnore(t.OperationConfig.Exceptions.IgnoreExceptions, t.Result, t.State)
 
-	if t.OperationConfig.Exceptions.RetryAttempts > 0 {
+	exceptionList := GetExceptions(t.Result, t.OperationConfig.Exceptions.RetryExceptions)
 
-		exceptionList := GetExceptions(t.Result, t.OperationConfig.Exceptions.RetryExceptions)
+	for _, exception := range exceptionList {
 
-		// For the retry exceptions :-> move them on success after retrying from err_sirius to completed
-		for _, exception := range exceptionList {
+		routineLimiter := make(chan struct{}, MaxRetryingRoutines)
+		dataChannel := make(chan int64, MaxRetryingRoutines)
 
-			errorOffsetListMap := make([]map[int64]RetriedResult, 0)
-			for _, failedDocs := range t.Result.BulkError[exception] {
-				m := make(map[int64]RetriedResult)
-				m[failedDocs.Offset] = RetriedResult{}
-				errorOffsetListMap = append(errorOffsetListMap, m)
-			}
+		failedDocuments := t.Result.BulkError[exception]
+		delete(t.Result.BulkError, exception)
 
-			routineLimiter := make(chan struct{}, tasks.MaxConcurrentRoutines)
-			dataChannel := make(chan map[int64]RetriedResult, tasks.MaxConcurrentRoutines)
-			wg := errgroup.Group{}
-			for _, x := range errorOffsetListMap {
-				dataChannel <- x
-				routineLimiter <- struct{}{}
-				wg.Go(func() error {
-					//	m := <-dataChannel
-					//	var offset = int64(-1)
-					//	for k, _ := range m {
-					//		offset = k
-					//	}
-					//
-					//	l := loadingTask{
-					//		start:           offset,
-					//		end:             offset + 1,
-					//		operationConfig: t.OperationConfig,
-					//		seed:            t.MetaData.Seed,
-					//		operation:       t.Operation,
-					//		rerun:           true,
-					//		gen:             t.gen,
-					//		state:           t.State,
-					//		result:          t.Result,
-					//		databaseInfo:    tasks.DatabaseInformation{},
-					//		extra:           db.Extras{},
-					//		req:             t.req,
-					//		identifier:      t.IdentifierToken,
-					//		wg:              nil,}
-					//
-					//key := offset + t.MetaData.Seed
-					//docId := t.gen.BuildKey(key)
-					//
-					//fake := faker.NewWithSeed(rand.NewSource(int64(key)))
-					//doc, _ := t.gen.Template.GenerateDocument(&fake, t.OperationConfig.DocSize)
-					//
-					//retry := 0
-					//var err error
-					//result := &gocb.MutationResult{}
-					//
-					//initTime := time.Now().UTC().Format(time.RFC850)
-					//
-					//for retry = 0; retry <= t.OperationConfig.Exceptions.RetryAttempts; retry++ {
-					//	result, err = collectionObject.Collection.Insert(docId, doc, &gocb.InsertOptions{
-					//		DurabilityLevel: cb_sdk.GetDurability(t.InsertOptions.Durability),
-					//		PersistTo:       t.InsertOptions.PersistTo,
-					//		ReplicateTo:     t.InsertOptions.ReplicateTo,
-					//		Timeout:         time.Duration(t.InsertOptions.Timeout) * time.Second,
-					//		Expiry:          time.Duration(t.InsertOptions.Expiry) * time.Second,
-					//	})
-					//
-					//	if err == nil {
-					//		break
-					//	}
-					//}
-					//
-					//if err != nil {
-					//	if errors.Is(err, gocb.ErrDocumentExists) {
-					//		if tempResult, err1 := collectionObject.Collection.Get(docId, &gocb.GetOptions{
-					//			Timeout: 5 * time.Second,
-					//		}); err1 == nil {
-					//			m[offset] = RetriedResult{
-					//				Status:   true,
-					//				CAS:      uint64(tempResult.Cas()),
-					//				InitTime: initTime,
-					//				AckTime:  time.Now().UTC().Format(time.RFC850),
-					//			}
-					//		} else {
-					//			m[offset] = RetriedResult{
-					//				Status:   true,
-					//				InitTime: initTime,
-					//				AckTime:  time.Now().UTC().Format(time.RFC850),
-					//			}
-					//		}
-					//	} else {
-					//		m[offset] = RetriedResult{
-					//			InitTime: initTime,
-					//			AckTime:  time.Now().UTC().Format(time.RFC850),
-					//		}
-					//	}
-					//} else {
-					//	m[offset] = RetriedResult{
-					//		Status:   true,
-					//		CAS:      uint64(result.Cas()),
-					//		InitTime: initTime,
-					//		AckTime:  time.Now().UTC().Format(time.RFC850),
-					//	}
-					//}
-					<-dataChannel
-					<-routineLimiter
-					return nil
-				})
-			}
-			_ = wg.Wait()
+		wg := errgroup.Group{}
+		for _, x := range failedDocuments {
 
-			shiftErrToCompletedOnRetrying(exception, t.Result, errorOffsetListMap, errorOffsetMaps,
-				completedOffsetMaps)
+			t.Result.Failure--
+			t.State.RemoveOffsetFromErrSet(x.Offset)
+
+			dataChannel <- x.Offset
+			routineLimiter <- struct{}{}
+
+			wg.Go(func() error {
+
+				offset := <-dataChannel
+				l := loadingTask{
+					start:           offset,
+					end:             offset + 1,
+					operationConfig: t.OperationConfig,
+					seed:            t.MetaData.Seed,
+					operation:       t.Operation,
+					rerun:           true,
+					gen:             t.gen,
+					state:           t.State,
+					result:          t.Result,
+					databaseInfo:    t.DatabaseInformation,
+					extra:           t.Extra,
+					req:             t.req,
+					identifier:      t.IdentifierToken,
+					wg:              nil}
+				l.Run()
+
+				<-routineLimiter
+				return nil
+			})
 		}
+		close(routineLimiter)
+		close(dataChannel)
+		_ = wg.Wait()
 	}
 
-	t.State.MakeCompleteKeyFromMap(completedOffsetMaps)
-	t.State.MakeErrorKeyFromMap(errorOffsetMaps)
-	t.Result.Failure = int64(len(t.State.KeyStates.Err))
-	t.Result.Success = t.OperationConfig.End - t.OperationConfig.Start - t.Result.Failure
 	log.Println("completed retrying:- ", t.Operation, t.IdentifierToken, t.ResultSeed)
+	_ = t.TearUp()
 }
 
 func (t *GenericLoadingTask) MatchResultSeed(resultSeed string) (bool, error) {
@@ -424,5 +337,6 @@ func (t *GenericLoadingTask) SetException(exceptions Exceptions) {
 }
 
 func (t *GenericLoadingTask) GetOperationConfig() (*OperationConfig, *task_state.TaskState) {
+
 	return t.OperationConfig, t.State
 }
