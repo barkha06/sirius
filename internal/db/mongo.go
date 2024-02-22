@@ -8,6 +8,7 @@ import (
 
 	"github.com/barkha06/sirius/internal/sdk_mongo"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -84,11 +85,12 @@ func newMongoBulkOperation() *mongoBulkOperationResult {
 	}
 }
 
-func (m *mongoBulkOperationResult) AddResult(key string, value interface{}, err error, status bool) {
+func (m *mongoBulkOperationResult) AddResult(key string, value interface{}, err error, status bool, offset int64) {
 	m.keyValues[key] = perMongoDocResult{
 		value:  value,
 		error:  err,
 		status: status,
+		offset: offset,
 	}
 }
 
@@ -198,8 +200,41 @@ func (m Mongo) Read(connStr, username, password, key string, offset int64, extra
 }
 
 func (m Mongo) Delete(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
-	//TODO implement me
-	panic("implement me")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newMongoOperationResult(key, nil, err, false, offset)
+	}
+
+	databaseName := extra.Database
+	collectionName := extra.Collection
+
+	if err := validateStrings(databaseName); err != nil {
+		return newMongoOperationResult(key, nil, errors.New("MongoDB database name is missing"), false, offset)
+	}
+	if err := validateStrings(collectionName); err != nil {
+		// TODO default collection implementation for MongoDB
+		return newMongoOperationResult(key, nil, errors.New("MongoDB database name is missing"), false, offset)
+	}
+
+	mongoCollObj, err1 := m.connectionManager.GetMongoCollection(connStr, username, password, nil, databaseName, collectionName)
+	if err1 != nil {
+		return newMongoOperationResult(key, nil, err1, false, offset)
+	}
+
+	mongoCollection := mongoCollObj.MongoCollection
+
+	// filter is used to define on what basis shall we delete the documents
+	filter := bson.M{"_id": key}
+
+	result, err2 := mongoCollection.DeleteOne(context.TODO(), filter)
+	if err2 != nil {
+		return newMongoOperationResult(key, nil, err2, false, offset)
+	}
+	if result == nil {
+		return newMongoOperationResult(key, nil,
+			fmt.Errorf("result is nil even after successful DELETE operation %s ", connStr), false, offset)
+	}
+
+	return newMongoOperationResult(key, nil, nil, true, offset)
 }
 
 func (m Mongo) Touch(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
@@ -245,6 +280,11 @@ func (m Mongo) CreateBulk(connStr, username, password string, keyValues []KeyVal
 		return result
 	}
 
+	keyToOffset := make(map[string]int64)
+	for _, x := range keyValues {
+		keyToOffset[x.Key] = x.Offset
+	}
+
 	mongoClient := m.connectionManager.Clusters[connStr].MongoClusterClient
 	//fmt.Println("In CreateBulk(), Mongo Client:", mongoClient)
 
@@ -265,23 +305,32 @@ func (m Mongo) CreateBulk(connStr, username, password string, keyValues []KeyVal
 		models = append(models, model)
 	}
 	opts := options.BulkWrite().SetOrdered(false)
+
 	mongoBulkWriteResult, err := mongoCollection.BulkWrite(context.TODO(), models, opts)
 	if err != nil {
-		log.Println("MongoDB CreateBulk(): Bulk Insert Error:", err)
-		result.failBulk(keyValues, errors.New("MongoDB CreateBulk(): Bulk Insert Error"))
+		log.Println("In MongoDB CreateBulk(), BulkWrite() Error:", err)
+		result.failBulk(keyValues, err)
 		return result
 	} else if int64(len(keyValues)) != mongoBulkWriteResult.InsertedCount {
+		log.Println("In MongoDB CreateBulk(), Error: Inserted Count does not match batch size, err:", err)
 		result.failBulk(keyValues, errors.New("MongoDB CreateBulk(): Inserted Count does not match batch size"))
 		return result
 	}
 
-	// TODO
-	// Update the AddResult() function for MongoDB.
+	for _, x := range keyValues {
+		//log.Println("Successfully inserted document with id:", x.Key)
+		result.AddResult(x.Key, nil, nil, true, keyToOffset[x.Key])
+	}
 
 	return result
 }
 
-// Warmup validates all the fields and checks if MongoDB Database or Collection is there
+// Warmup
+/*
+ * Validates all the string fields
+ * TODO Checks if the MongoDB Database or Collection exists
+ * TODO If Database or Collection name is not specified then we create a Default
+ */
 func (m Mongo) Warmup(connStr, username, password string, extra Extras) error {
 	if err := validateStrings(connStr, username, password); err != nil {
 		return err
@@ -298,25 +347,25 @@ func (m Mongo) Warmup(connStr, username, password string, extra Extras) error {
 	}
 
 	// TODO
-	// Checking if the Collection exists or not
+	// Checking if the Collection exists or not. Will not work if User does not have readWriteAnyDatabase or if not using Auth
+
 	//mongoDatabase := m.connectionManager.Clusters[connStr].MongoClusterClient.Database(databaseName)
-	//log.Println("MongoDB Warmup() : mongo database object var:", mongoDatabase)
-	//collectionNames, err := mongoDatabase.ListCollections(context.TODO(), nil)
+	//
+	//collectionNames, err := mongoDatabase.ListCollectionNames(context.TODO(), bson.D{{"options.NameOnly", true}})
 	//if err != nil {
+	//	log.Println("In MongoDB Warmup(), ListCollectionNames() Error: unable to list Collection Names for the given MongoDB Database")
+	//	log.Println(err)
 	//	//return errors.New("unable to list Collections for the given MongoDB Database")
 	//	return err
 	//}
-	//
-	//for collectionNames.Next(context.TODO()) {
-	//	var name string
-	//	if err := collectionNames.Decode(&name); err != nil {
-	//		log.Println("MongoDB Warmup(): unable to decode Collection Name", err)
-	//		return err
-	//	}
-	//	if name == collectionName {
-	//		log.Println("MongoDB Warmup():", collectionName, "Collection exists")
+	////log.Println("Collection Names:", collectionNames)
+	//for _, collName := range collectionNames {
+	//	//log.Println("Collection Name:", collName)
+	//	if collectionName == collName {
+	//		log.Println("In MongoDB Warmup(),", collectionName, "Collection exists")
 	//	}
 	//}
+
 	return nil
 }
 
@@ -339,28 +388,60 @@ func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue
 }
 
 func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	//TODO implement me
-	panic("implement me")
-}
+	result := newMongoBulkOperation()
 
-func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	//TODO implement me
-	panic("implement me")
-}
+	if err := validateStrings(connStr, username, password); err != nil {
+		result.failBulk(keyValues, err)
+		return result
+	}
 
-func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	//TODO implement me
-	panic("implement me")
-}
+	databaseName := extra.Database
+	collectionName := extra.Collection
 
-func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	//TODO implement me
-	panic("implement me")
-}
+	if err := validateStrings(databaseName); err != nil {
+		result.failBulk(keyValues, errors.New("MongoDB database name is missing"))
+		return result
+	}
 
-func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	//TODO implement me
-	panic("implement me")
+	if err := validateStrings(collectionName); err != nil {
+		// TODO implement default collection
+		result.failBulk(keyValues, errors.New("MongoDB collection name is missing"))
+		return result
+	}
+
+	mongoCollObj, err1 := m.connectionManager.GetMongoCollection(connStr, username, password, nil, databaseName, collectionName)
+	if err1 != nil {
+		result.failBulk(keyValues, err1)
+		return result
+	}
+
+	mongoCollection := mongoCollObj.MongoCollection
+
+	var documentIDs []string // Add your document IDs here
+	keyToOffset := make(map[string]int64)
+
+	for _, x := range keyValues {
+		documentIDs = append(documentIDs, x.Key)
+		keyToOffset[x.Key] = x.Offset
+	}
+
+	// filter defines on what basis do we delete the documents
+	filter := bson.M{"_id": bson.M{"$in": documentIDs}}
+
+	resultOfDelete, err2 := mongoCollection.DeleteMany(context.Background(), filter)
+	if err2 != nil {
+		result.failBulk(keyValues, err2)
+		return result
+	}
+
+	log.Printf("Deleted %d document(s)\n", resultOfDelete.DeletedCount)
+
+	// TODO
+	// To implement AddResult()
+	for _, x := range keyValues {
+		result.AddResult(x.Key, nil, nil, true, keyToOffset[x.Key])
+	}
+	return result
 }
 
 func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
