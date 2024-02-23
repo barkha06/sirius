@@ -3,8 +3,6 @@ package db
 import (
 	"errors"
 	"fmt"
-
-	// "log"
 	"time"
 
 	"github.com/barkha06/sirius/internal/cb_sdk"

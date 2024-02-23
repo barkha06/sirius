@@ -8,7 +8,7 @@ import (
 )
 
 var MaxConcurrentRoutines = 512
-var MaxThreads = 32
+var MaxThreads = 128
 var MAXQueueSize int64 = 1000000
 var Pool = threadpool.NewThreadPool(MaxThreads, MAXQueueSize)
 

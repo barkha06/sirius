@@ -62,9 +62,7 @@ func (l *loadingTask) Run() {
 	switch l.operation {
 	case tasks.InsertOperation:
 		{
-			//insertDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
-			//	l.databaseInfo, l.extra, l.wg)
-			bulkInsertDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
+			insertDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
 				l.databaseInfo, l.extra, l.wg)
 		}
 	case tasks.UpsertOperation:
