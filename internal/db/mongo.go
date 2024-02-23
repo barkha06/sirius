@@ -143,6 +143,60 @@ func (m *mongoBulkOperationResult) GetSize() int {
 	return len(m.keyValues)
 }
 
+// Operation Result for SubDoc Operations
+type perMongoSubDocResult struct {
+	keyValue []KeyValue
+	error    error
+	status   bool
+	offset   int64
+}
+
+type mongoSubDocOperationResult struct {
+	key    string
+	result perMongoSubDocResult
+}
+
+func newMongoSubDocOperationResult(key string, keyValue []KeyValue, err error, status bool, offset int64) *mongoSubDocOperationResult {
+	return &mongoSubDocOperationResult{
+		key: key,
+		result: perMongoSubDocResult{
+			keyValue: keyValue,
+			error:    err,
+			status:   status,
+			offset:   offset,
+		},
+	}
+}
+
+func (m *mongoSubDocOperationResult) Key() string {
+	return m.key
+}
+
+func (m *mongoSubDocOperationResult) Value(subPath string) (interface{}, int64) {
+	for _, x := range m.result.keyValue {
+		if x.Key == subPath {
+			return x.Doc, x.Offset
+		}
+	}
+	return nil, -1
+}
+
+func (m *mongoSubDocOperationResult) Values() []KeyValue {
+	return m.result.keyValue
+}
+
+func (m *mongoSubDocOperationResult) GetError() error {
+	return m.result.error
+}
+
+func (m *mongoSubDocOperationResult) GetExtra() map[string]any {
+	return map[string]any{}
+}
+
+func (m *mongoSubDocOperationResult) GetOffset() int64 {
+	return m.result.offset
+}
+
 func (m Mongo) Connect(connStr, username, password string, extra Extras) error {
 	clusterConfig := &sdk_mongo.MongoClusterConfig{
 		ConnectionString: connStr,
@@ -242,9 +296,54 @@ func (m Mongo) Touch(connStr, username, password, key string, offset int64, extr
 	panic("implement me")
 }
 
-func (m Mongo) InsertSubDoc(connStr, username, password, key string, keyValue []KeyValue, offset int64, extra Extras) SubDocOperationResult {
-	//TODO implement me
-	panic("implement me")
+func (m Mongo) InsertSubDoc(connStr, username, password, key string, keyValues []KeyValue, offset int64, extra Extras) SubDocOperationResult {
+
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newMongoSubDocOperationResult(key, keyValues, err, false, offset)
+	}
+
+	databaseName := extra.Database
+	collectionName := extra.Collection
+
+	if err := validateStrings(databaseName); err != nil {
+		return newMongoSubDocOperationResult(key, keyValues, errors.New("MongoDB Database name is missing"), false, offset)
+	}
+
+	if err := validateStrings(collectionName); err != nil {
+		return newMongoSubDocOperationResult(key, keyValues, errors.New("MongoDB Collection name is missing"), false, offset)
+	}
+
+	mongoClient := m.connectionManager.Clusters[connStr].MongoClusterClient
+	mongoCollection := mongoClient.Database(databaseName).Collection(collectionName)
+
+	for _, x := range keyValues {
+		// filter defines on what basis we find the doc to insert the sub documents
+		filter := bson.M{"_id": key}
+		// Defines the update to add a sub-document to the existing document
+		update := bson.M{
+			"$set": bson.M{
+				x.Key: x.Doc,
+			},
+			"$inc": bson.M{
+				"mutated": 1,
+			},
+		}
+
+		result, err := mongoCollection.UpdateOne(context.TODO(), filter, update)
+		if err != nil {
+			log.Println("In MongoDB InsertSubDoc(), error:", err)
+			return newMongoSubDocOperationResult(key, keyValues, err, false, offset)
+		}
+
+		// Checking if the update operation was successful
+		if result.UpsertedCount == 0 && result.ModifiedCount == 0 {
+			log.Println("No documents matched the filter or no modifications were made")
+			return newMongoSubDocOperationResult(key, keyValues,
+				fmt.Errorf("no documents matched the filter or no modifications were made"), false, offset)
+		}
+	}
+
+	return newMongoSubDocOperationResult(key, keyValues, nil, false, offset)
 }
 
 func (m Mongo) UpsertSubDoc(connStr, username, password, key string, keyValue []KeyValue, offset int64, extra Extras) SubDocOperationResult {
@@ -346,7 +445,6 @@ func (m Mongo) Warmup(connStr, username, password string, extra Extras) error {
 		return errors.New("MongoDB Collection name is missing")
 	}
 
-	// TODO
 	// Checking if the Collection exists or not. Will not work if User does not have readWriteAnyDatabase or if not using Auth
 
 	//mongoDatabase := m.connectionManager.Clusters[connStr].MongoClusterClient.Database(databaseName)
@@ -433,11 +531,14 @@ func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyVal
 		result.failBulk(keyValues, err2)
 		return result
 	}
+	if resultOfDelete == nil {
+		for _, x := range keyValues {
+			result.AddResult(x.Key, nil, errors.New("delete successful but result is nil"), true, keyToOffset[x.Key])
+		}
+		return result
+	}
+	//log.Printf("Deleted %d document(s)\n", resultOfDelete.DeletedCount)
 
-	log.Printf("Deleted %d document(s)\n", resultOfDelete.DeletedCount)
-
-	// TODO
-	// To implement AddResult()
 	for _, x := range keyValues {
 		result.AddResult(x.Key, nil, nil, true, keyToOffset[x.Key])
 	}
