@@ -3,12 +3,12 @@ package db
 import (
 	"sync"
 
-	"github.com/barkha06/sirius/internal/err_sirius"
+	"github.com/couchbaselabs/sirius/internal/err_sirius"
 )
 
 const (
 	CouchbaseDb = "couchbase"
-	MongoDb     = "mongodb"
+	MongoDb     = "mongo"
 )
 
 type OperationResult interface {
@@ -61,20 +61,20 @@ type Database interface {
 }
 
 var couchbase *Couchbase
-var mongodb *Mongo
+var mongo *Mongo
 var lock = &sync.Mutex{}
 
 func ConfigDatabase(dbType string) (Database, error) {
 	switch dbType {
 	case MongoDb:
-		if mongodb == nil {
+		if mongo == nil {
 			lock.Lock()
 			defer lock.Unlock()
-			if mongodb == nil {
-				mongodb = NewMongoConnectionManager()
+			if mongo == nil {
+				mongo = &Mongo{}
 			}
 		}
-		return mongodb, nil
+		return mongo, nil
 	case CouchbaseDb:
 		if couchbase == nil {
 			lock.Lock()

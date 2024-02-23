@@ -3,9 +3,9 @@ package bulk_loading
 import (
 	"fmt"
 
-	"github.com/barkha06/sirius/internal/err_sirius"
-	"github.com/barkha06/sirius/internal/task_state"
-	"github.com/barkha06/sirius/internal/tasks"
+	"github.com/couchbaselabs/sirius/internal/err_sirius"
+	"github.com/couchbaselabs/sirius/internal/task_state"
+	"github.com/couchbaselabs/sirius/internal/tasks"
 )
 
 type RetryExceptions struct {

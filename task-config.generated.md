@@ -13,6 +13,9 @@ configuration that is also available on a per-task basis:
  * [/create](#create)
  * [/delete](#delete)
  * [/read](#read)
+ * [/create](#create)
+ * [/delete](#delete)
+ * [/read](#read)
  * [/result](#result)
  * [/sub-doc-delete](#sub-doc-delete)
  * [/sub-doc-insert](#sub-doc-insert)
@@ -317,17 +320,108 @@ Description : Warming up a connection to database.
 | `IsXattr` | `bool` | `json:isXattr,omitempty`  |
 | `StoreSemantic` | `int` | `json:storeSemantic,omitempty`  |
 | `PreserveExpiry` | `bool` | `json:preserveExpiry,omitempty`  |
-| `CreatePath` | `bool` | `json:createPath,omitempty`  |
-| `SDKBatchSize` | `int` | `json:SDKBatchSize,omitempty`  |
-| `Database` | `string` | `json:database,omitempty`  |
+#### operationConfig
 
----
-Possible values for durability :-
-1. NONE
-2. MAJORITY
-3. MAJORITY_AND_PERSIST_TO_ACTIVE
-4. PERSIST_TO_MAJORITY
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `Count` | `int64` | `json:count,omitempty`  |
+| `DocSize` | `int` | `json:docSize`  |
+| `DocType` | `string` | `json:docType,omitempty`  |
+| `KeySize` | `int` | `json:keySize,omitempty`  |
+| `KeyPrefix` | `string` | `json:keyPrefix`  |
+| `KeySuffix` | `string` | `json:keySuffix`  |
+| `ReadYourOwnWrite` | `bool` | `json:readYourOwnWrite,omitempty`  |
+| `TemplateName` | `string` | `json:template`  |
+| `Start` | `int64` | `json:start`  |
+| `End` | `int64` | `json:end`  |
+| `FieldsToChange` | `slice` | `json:fieldsToChange`  |
+| `Exceptions` | `struct` | `json:exceptions,omitempty`  |
+#### queryOperationConfig
 
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `Template` | `string` | `json:template,omitempty`  |
+| `Duration` | `int` | `json:duration,omitempty`  |
+| `BuildIndex` | `bool` | `json:buildIndex`  |
+| `BuildIndexViaSDK` | `bool` | `json:buildIndexViaSDK`  |
+#### removeOptions
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `Cas` | `uint64` | `json:cas,omitempty`  |
+| `PersistTo` | `uint` | `json:persistTo,omitempty`  |
+| `ReplicateTo` | `uint` | `json:replicateTo,omitempty`  |
+| `Durability` | `string` | `json:durability,omitempty`  |
+| `Timeout` | `int` | `json:timeout,omitempty`  |
+#### removeSpecOptions
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `IsXattr` | `bool` | `json:isXattr,omitempty`  |
+#### replaceOption
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `Expiry` | `int64` | `json:expiry,omitempty`  |
+| `Cas` | `uint64` | `json:cas,omitempty`  |
+| `PersistTo` | `uint` | `json:persistTo,omitempty`  |
+| `ReplicateTo` | `uint` | `json:replicateTo,omitempty`  |
+| `Durability` | `string` | `json:durability,omitempty`  |
+| `Timeout` | `int` | `json:timeout,omitempty`  |
+#### replaceSpecOptions
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `IsXattr` | `bool` | `json:isXattr,omitempty`  |
+#### retriedError
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `SDKTiming` | `struct` | `json:sdkTimings`  |
+| `DocId` | `string` | `json:key`  |
+| `Status` | `bool` | `json:status`  |
+| `Cas` | `uint64` | `json:cas`  |
+| `ErrorString` | `string` | `json:errorString`  |
+#### sdkTimings
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `SendTime` | `string` | `json:sendTime`  |
+| `AckTime` | `string` | `json:ackTime`  |
+#### singleOperationConfig
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `Keys` | `slice` | `json:keys`  |
+| `Template` | `string` | `json:template`  |
+| `DocSize` | `int` | `json:docSize`  |
+#### singleResult
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `SDKTiming` | `struct` | `json:sdkTimings`  |
+| `ErrorString` | `string` | `json:errorString`  |
+| `Status` | `bool` | `json:status`  |
+| `Cas` | `uint64` | `json:cas`  |
+#### singleSubDocOperationConfig
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `Key` | `string` | `json:key`  |
+| `Paths` | `slice` | `json:paths`  |
+| `DocSize` | `int` | `json:docSize`  |
+#### timeoutsConfig
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `ConnectTimeout` | `int` | `json:connectTimeout,omitempty`  |
+| `KVTimeout` | `int` | `json:KVTimeout,omitempty`  |
+| `KVDurableTimeout` | `int` | `json:KVDurableTimeout,omitempty`  |
+#### touchOptions
+
+| Name | Type | JSON Tag |
+| ---- | ---- | -------- |
+| `Timeout` | `int` | `json:timeout,omitempty`  |
 
 ---
 **APIs Response Description**.

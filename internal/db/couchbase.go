@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"fmt"
+<<<<<<< HEAD
 
 	// "log"
 	"time"
@@ -10,6 +11,12 @@ import (
 	"github.com/barkha06/sirius/internal/cb_sdk"
 	"github.com/barkha06/sirius/internal/template"
 	"github.com/couchbase/gocb/v2"
+=======
+	"github.com/couchbase/gocb/v2"
+	"github.com/couchbaselabs/sirius/internal/cb_sdk"
+	"github.com/couchbaselabs/sirius/internal/template"
+	"time"
+>>>>>>> upstream/support_multiple_databases
 )
 
 type perDocResult struct {
@@ -908,7 +915,10 @@ func (c *Couchbase) CreateBulk(connStr, username, password string, keyValues []K
 	}
 
 	var bulkOp []gocb.BulkOp
+<<<<<<< HEAD
 
+=======
+>>>>>>> upstream/support_multiple_databases
 	keyToOffset := make(map[string]int64)
 
 	for _, x := range keyValues {
@@ -943,6 +953,7 @@ func (c *Couchbase) CreateBulk(connStr, username, password string, keyValues []K
 			result.AddResult(insertOp.ID, insertOp.Value, nil, true, uint64(insertOp.Result.Cas()),
 				keyToOffset[insertOp.ID])
 		}
+<<<<<<< HEAD
 		//if mutationResults[x.Key].err != nil {
 		//	result.AddResult(x.Key, x.Doc, mutationResults[x.Key].err, false,
 		//		uint64(mutationResults[x.Key].result.Cas()))
@@ -950,6 +961,8 @@ func (c *Couchbase) CreateBulk(connStr, username, password string, keyValues []K
 		//	result.AddResult(x.Key, x.Doc, nil, true, uint64(mutationResults[x.Key].result.Cas()))
 		//}
 
+=======
+>>>>>>> upstream/support_multiple_databases
 	}
 	return result
 }

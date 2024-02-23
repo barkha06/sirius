@@ -10,6 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/couchbaselabs/sirius/internal/db"
+	"github.com/couchbaselabs/sirius/internal/docgenerator"
+	"github.com/couchbaselabs/sirius/internal/task_state"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/barkha06/sirius/internal/db"
 	"github.com/barkha06/sirius/internal/docgenerator"
 	"github.com/barkha06/sirius/internal/task_state"

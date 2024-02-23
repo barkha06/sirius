@@ -3,11 +3,11 @@ package bulk_loading
 import (
 	"sync"
 
-	"github.com/barkha06/sirius/internal/db"
-	"github.com/barkha06/sirius/internal/docgenerator"
-	"github.com/barkha06/sirius/internal/task_result"
-	"github.com/barkha06/sirius/internal/task_state"
-	"github.com/barkha06/sirius/internal/tasks"
+	"github.com/couchbaselabs/sirius/internal/db"
+	"github.com/couchbaselabs/sirius/internal/docgenerator"
+	"github.com/couchbaselabs/sirius/internal/task_result"
+	"github.com/couchbaselabs/sirius/internal/task_state"
+	"github.com/couchbaselabs/sirius/internal/tasks"
 )
 
 type BulkTask interface {
@@ -62,9 +62,7 @@ func (l *loadingTask) Run() {
 	switch l.operation {
 	case tasks.InsertOperation:
 		{
-			//insertDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
-			//	l.databaseInfo, l.extra, l.wg)
-			bulkInsertDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
+			insertDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
 				l.databaseInfo, l.extra, l.wg)
 		}
 	case tasks.UpsertOperation:
@@ -131,6 +129,11 @@ func (l *loadingTask) Run() {
 	case tasks.BulkReadOperation:
 		{
 			bulkReadDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
+				l.databaseInfo, l.extra, l.wg)
+		}
+	case tasks.BulkTouchOperation:
+		{
+			bulkTouchDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
 				l.databaseInfo, l.extra, l.wg)
 		}
 

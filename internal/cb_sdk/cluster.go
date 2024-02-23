@@ -19,6 +19,14 @@ const (
 	CompressionMinSize  = "compressionMinSize"
 	CompressionMaxSize  = "compressionMinSize"
 )
+const (
+	ConnectTimeout      = "connectTimeout"
+	KVTimeout           = "kvTimeout"
+	KVDurableTimeout    = "kvDurableTimeout"
+	CompressionDisabled = "compressionDisabled"
+	CompressionMinSize  = "compressionMinSize"
+	CompressionMaxSize  = "compressionMinSize"
+)
 
 type TimeoutsConfig struct {
 	ConnectTimeout   int `json:"connectTimeout,omitempty" doc:"true"`
@@ -40,15 +48,23 @@ type ClusterConfig struct {
 	ConnectionString  string            `json:"connectionString,omitempty"`
 	Username          string            `json:"username,omitempty"`
 	Password          string            `json:"password,omitempty"`
+	ConnectionString  string            `json:"connectionString,omitempty"`
+	Username          string            `json:"username,omitempty"`
+	Password          string            `json:"password,omitempty"`
 }
 
-func ValidateClusterConfig(connStr, username, password string, c *ClusterConfig) error {
+func ValidateClusterConfig(connStr, username, password string, connStr, username, password string, c *ClusterConfig) error {
 	if c == nil {
+		c = &ClusterConfig{}
 		c = &ClusterConfig{}
 	}
 	if connStr == "" {
 		return err_sirius.InvalidConnectionString
+	if connStr == "" {
+		return err_sirius.InvalidConnectionString
 	}
+	if username == "" || password == "" {
+		return fmt.Errorf("connection string : %s | %w", connStr, err_sirius.CredentialMissing)
 	if username == "" || password == "" {
 		return fmt.Errorf("connection string : %s | %w", connStr, err_sirius.CredentialMissing)
 	}

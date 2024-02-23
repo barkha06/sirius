@@ -46,6 +46,19 @@ func (cm *ConnectionManager) Disconnect(connstr string) error {
 	return nil
 }
 
+// Disconnect disconnect a particular Clusters
+func (cm *ConnectionManager) Disconnect(connstr string) error {
+	clusterIdentifier, err := GetClusterIdentifier(connstr)
+	if err != nil {
+		return err
+	}
+	clusterObj, ok := cm.Clusters[clusterIdentifier]
+	if ok {
+		return clusterObj.Cluster.Close(nil)
+	}
+	return nil
+}
+
 // DisconnectAll disconnect all the Clusters used in a tasks.Request
 func (cm *ConnectionManager) DisconnectAll() {
 	defer cm.lock.Unlock()

@@ -27,6 +27,9 @@ func (app *Config) testServer(w http.ResponseWriter, _ *http.Request) {
 // clearRequestFromServer clears a test's request from the server.
 func (app *Config) clearRequestFromServer(w http.ResponseWriter, r *http.Request) {
 	task := &util_sirius.ClearTask{}
+// clearRequestFromServer clears a test's request from the server.
+func (app *Config) clearRequestFromServer(w http.ResponseWriter, r *http.Request) {
+	task := &util_sirius.ClearTask{}
 	if err := app.readJSON(w, r, task); err != nil {
 		_ = app.errorJSON(w, err, http.StatusUnprocessableEntity)
 		return
@@ -35,6 +38,10 @@ func (app *Config) clearRequestFromServer(w http.ResponseWriter, r *http.Request
 		_ = app.errorJSON(w, err, http.StatusUnprocessableEntity)
 		return
 	}
+	log.Print(task, "clear")
+	if err := app.serverRequests.ClearIdentifierAndRequest(task.IdentifierToken); err != nil {
+		_ = app.errorJSON(w, fmt.Errorf("no session for %s", task.IdentifierToken),
+			http.StatusUnprocessableEntity)
 	log.Print(task, "clear")
 	if err := app.serverRequests.ClearIdentifierAndRequest(task.IdentifierToken); err != nil {
 		_ = app.errorJSON(w, fmt.Errorf("no session for %s", task.IdentifierToken),
@@ -53,17 +60,75 @@ func (app *Config) clearRequestFromServer(w http.ResponseWriter, r *http.Request
 func (app *Config) taskResult(w http.ResponseWriter, r *http.Request) {
 	reqPayload := &util_sirius.TaskResult{}
 	if err := app.readJSON(w, r, reqPayload); err != nil {
+// taskResult uses the result token to fetch the desired result and return it to user.
+func (app *Config) taskResult(w http.ResponseWriter, r *http.Request) {
+	reqPayload := &util_sirius.TaskResult{}
+	if err := app.readJSON(w, r, reqPayload); err != nil {
 		_ = app.errorJSON(w, err, http.StatusUnprocessableEntity)
 		return
 	}
 	log.Print(reqPayload, "result")
 	result, err := task_result.ReadResultFromFile(reqPayload.Seed, reqPayload.DeleteRecord)
+	log.Print(reqPayload, "result")
+	result, err := task_result.ReadResultFromFile(reqPayload.Seed, reqPayload.DeleteRecord)
 	if err != nil {
+		_ = app.errorJSON(w, err, http.StatusBadRequest)
 		_ = app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
 	respPayload := jsonResponse{
+	respPayload := jsonResponse{
 		Error:   false,
+		Message: "Successfully retrieved task_result_logs",
+		Data:    result,
+	}
+	_ = app.writeJSON(w, http.StatusOK, respPayload)
+}
+
+//// validateTask is validating the cluster's current state.
+//func (app *Config) validateTask(w http.ResponseWriter, r *http.Request) {
+//	task := &bulk_loading.ValidateTask{}
+//	if err_sirius := app.readJSON(w, r, task); err_sirius != nil {
+//		_ = app.errorJSON(w, err_sirius, http.StatusUnprocessableEntity)
+//		return
+//	}
+//	if err_sirius := checkIdentifierToken(task.IdentifierToken); err_sirius != nil {
+//		_ = app.errorJSON(w, err_sirius, http.StatusUnprocessableEntity)
+//		return
+//	}
+//	log.Print(task, tasks.ValidateOperation)
+//	err_sirius := app.serverRequests.AddTask(task.IdentifierToken, tasks.ValidateOperation, task)
+//	if err_sirius != nil {
+//		_ = app.errorJSON(w, err_sirius, http.StatusUnprocessableEntity)
+//		return
+//	}
+//	req, err_sirius := app.serverRequests.GetRequestOfIdentifier(task.IdentifierToken)
+//	if err_sirius != nil {
+//		_ = app.errorJSON(w, err_sirius, http.StatusUnprocessableEntity)
+//		return
+//	}
+//	seedResult, err_sirius := task.Config(req, false)
+//	if err_sirius != nil {
+//		_ = app.errorJSON(w, err_sirius, http.StatusUnprocessableEntity)
+//		return
+//	}
+//	if err_sirius := app.taskManager.AddTask(task); err_sirius != nil {
+//		_ = app.errorJSON(w, err_sirius, http.StatusUnprocessableEntity)
+//	}
+//	respPayload := util_sirius.TaskResponse{
+//		Seed: fmt.Sprintf("%d", seedResult),
+//	}
+//	resPayload := jsonResponse{
+//		Error:   false,
+//		Message: "Successfully started requested doc loading",
+//		Data:    respPayload,
+//	}
+//	_ = app.writeJSON(w, http.StatusOK, resPayload)
+//}
+
+// insertTask is used to insert documents.
+func (app *Config) insertTask(w http.ResponseWriter, r *http.Request) {
+	task := &bulk_loading.GenericLoadingTask{}
 		Message: "Successfully retrieved task_result_logs",
 		Data:    result,
 	}
@@ -125,6 +190,9 @@ func (app *Config) insertTask(w http.ResponseWriter, r *http.Request) {
 	task.Operation = tasks.InsertOperation
 	log.Print(task, tasks.InsertOperation)
 	err := app.serverRequests.AddTask(task.IdentifierToken, tasks.InsertOperation, task)
+	task.Operation = tasks.InsertOperation
+	log.Print(task, tasks.InsertOperation)
+	err := app.serverRequests.AddTask(task.IdentifierToken, tasks.InsertOperation, task)
 	if err != nil {
 		_ = app.errorJSON(w, err, http.StatusUnprocessableEntity)
 		return
@@ -156,6 +224,9 @@ func (app *Config) insertTask(w http.ResponseWriter, r *http.Request) {
 // bulkInsertTask is used to insert documents.
 func (app *Config) bulkInsertTask(w http.ResponseWriter, r *http.Request) {
 	task := &bulk_loading.GenericLoadingTask{}
+// bulkInsertTask is used to insert documents.
+func (app *Config) bulkInsertTask(w http.ResponseWriter, r *http.Request) {
+	task := &bulk_loading.GenericLoadingTask{}
 	if err := app.readJSON(w, r, task); err != nil {
 		_ = app.errorJSON(w, err, http.StatusUnprocessableEntity)
 		return
@@ -164,6 +235,9 @@ func (app *Config) bulkInsertTask(w http.ResponseWriter, r *http.Request) {
 		_ = app.errorJSON(w, err, http.StatusUnprocessableEntity)
 		return
 	}
+	task.Operation = tasks.BulkInsertOperation
+	log.Print(task, tasks.BulkInsertOperation)
+	err := app.serverRequests.AddTask(task.IdentifierToken, tasks.BulkInsertOperation, task)
 	task.Operation = tasks.BulkInsertOperation
 	log.Print(task, tasks.BulkInsertOperation)
 	err := app.serverRequests.AddTask(task.IdentifierToken, tasks.BulkInsertOperation, task)
@@ -198,6 +272,9 @@ func (app *Config) bulkInsertTask(w http.ResponseWriter, r *http.Request) {
 // deleteTask is used to delete documents.
 func (app *Config) deleteTask(w http.ResponseWriter, r *http.Request) {
 	task := &bulk_loading.GenericLoadingTask{}
+// deleteTask is used to delete documents.
+func (app *Config) deleteTask(w http.ResponseWriter, r *http.Request) {
+	task := &bulk_loading.GenericLoadingTask{}
 	if err := app.readJSON(w, r, task); err != nil {
 		_ = app.errorJSON(w, err, http.StatusUnprocessableEntity)
 		return
@@ -206,6 +283,9 @@ func (app *Config) deleteTask(w http.ResponseWriter, r *http.Request) {
 		_ = app.errorJSON(w, err, http.StatusUnprocessableEntity)
 		return
 	}
+	task.Operation = tasks.DeleteOperation
+	log.Print(task, tasks.DeleteOperation)
+	err := app.serverRequests.AddTask(task.IdentifierToken, tasks.DeleteOperation, task)
 	task.Operation = tasks.DeleteOperation
 	log.Print(task, tasks.DeleteOperation)
 	err := app.serverRequests.AddTask(task.IdentifierToken, tasks.DeleteOperation, task)
@@ -218,6 +298,7 @@ func (app *Config) deleteTask(w http.ResponseWriter, r *http.Request) {
 		_ = app.errorJSON(w, err, http.StatusUnprocessableEntity)
 		return
 	}
+	resultSeed, err := task.Config(req, false)
 	resultSeed, err := task.Config(req, false)
 	if err != nil {
 		_ = app.errorJSON(w, err, http.StatusUnprocessableEntity)

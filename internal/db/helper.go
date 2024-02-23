@@ -3,7 +3,7 @@ package db
 import (
 	"fmt"
 
-	"github.com/barkha06/sirius/internal/err_sirius"
+	"github.com/couchbaselabs/sirius/internal/err_sirius"
 )
 
 type KeyValue struct {
@@ -33,7 +33,6 @@ type Extras struct {
 	PreserveExpiry      bool    `json:"preserveExpiry,omitempty" doc:"true"`
 	CreatePath          bool    `json:"createPath,omitempty" doc:"true"`
 	SDKBatchSize        int     `json:"SDKBatchSize,omitempty" doc:"true"`
-	Database            string  `json:"database,omitempty" doc:"true"`
 }
 
 func validateStrings(values ...string) error {
