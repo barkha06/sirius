@@ -3,7 +3,7 @@ package tasks
 import (
 	"sync"
 
-	"github.com/couchbaselabs/sirius/internal/db"
+	"github.com/barkha06/sirius/internal/db"
 	"github.com/shettyh/threadpool"
 )
 

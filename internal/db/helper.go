@@ -3,7 +3,7 @@ package db
 import (
 	"fmt"
 
-	"github.com/couchbaselabs/sirius/internal/err_sirius"
+	"github.com/barkha06/sirius/internal/err_sirius"
 )
 
 type KeyValue struct {

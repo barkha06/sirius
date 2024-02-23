@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/couchbaselabs/sirius/internal/meta_data"
+	"github.com/barkha06/sirius/internal/meta_data"
 
 	"github.com/barkha06/sirius/internal/meta_data"
 )

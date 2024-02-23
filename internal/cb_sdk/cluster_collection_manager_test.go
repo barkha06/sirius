@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/barkha06/sirius/internal/docgenerator"
+	"github.com/barkha06/sirius/internal/meta_data"
+	"github.com/barkha06/sirius/internal/template"
 	"github.com/bgadrian/fastfaker/faker"
 	"github.com/couchbase/gocb/v2"
-	"github.com/couchbaselabs/sirius/internal/docgenerator"
-	"github.com/couchbaselabs/sirius/internal/meta_data"
-	"github.com/couchbaselabs/sirius/internal/template"
 
 	"github.com/barkha06/sirius/internal/docgenerator"
 	"github.com/barkha06/sirius/internal/meta_data"
