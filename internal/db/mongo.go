@@ -578,7 +578,6 @@ func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyVal
 	databaseName := extra.Database
 	collectionName := extra.Collection
 
-
 	if err := validateStrings(databaseName); err != nil {
 		result.failBulk(keyValues, errors.New("MongoDB database name is missing"))
 		return result
@@ -633,22 +632,7 @@ func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValu
 	panic("implement me")
 }
 
-// func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-// 	//TODO implement me
-// 	panic("implement me")
-// }
-
-// func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-// 	//TODO implement me
-// 	panic("implement me")
-// }
-
-// func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-// 	//TODO implement me
-// 	panic("implement me")
-// }
-
-// func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-// 	//TODO implement me
-// 	panic("implement me")
-// }
+func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
+	//TODO implement me
+	panic("implement me")
+}

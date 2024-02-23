@@ -4,9 +4,12 @@ import (
 	"github.com/barkha06/sirius/internal/docgenerator"
 	"github.com/barkha06/sirius/internal/meta_data"
 	"github.com/barkha06/sirius/internal/template"
-	"github.com/jaswdr/faker"
+
+	// "github.com/jaswdr/faker"
 	"log"
-	"math/rand"
+
+	"github.com/bgadrian/fastfaker/faker"
+
 	"testing"
 )
 
@@ -47,8 +50,9 @@ func TestMongoDB(t *testing.T) {
 	for i := int64(0); i < int64(10); i++ {
 		key := i + cm1.Seed
 		docId := gen.BuildKey(key)
-		fake := faker.NewWithSeed(rand.NewSource(int64(key)))
-		doc, _ := g.Template.GenerateDocument(docId, &fake, 1024)
+		fake := faker.NewFastFaker()
+		fake.Seed(key)
+		doc := g.Template.GenerateDocument(fake, docId, 1024)
 		//log.Println(docId, Doc)
 		createResult := db.Create(connStr, username, password, KeyValue{
 			Key:    docId,
@@ -70,8 +74,9 @@ func TestMongoDB(t *testing.T) {
 	for i := int64(10); i < int64(50); i++ {
 		key := i + cm1.Seed
 		docId := gen.BuildKey(key)
-		fake := faker.NewWithSeed(rand.NewSource(int64(key)))
-		doc, _ := g.Template.GenerateDocument(docId, &fake, 1024)
+		fake := faker.NewFastFaker()
+		fake.Seed(key)
+		doc := g.Template.GenerateDocument(fake, docId, 1024)
 		//log.Println(docId, Doc)
 		keyVal := KeyValue{docId, doc, i}
 		keyValues = append(keyValues, keyVal)

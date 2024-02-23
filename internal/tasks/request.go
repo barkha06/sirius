@@ -9,8 +9,6 @@ import (
 	"sync"
 
 	"github.com/barkha06/sirius/internal/meta_data"
-
-	"github.com/barkha06/sirius/internal/meta_data"
 )
 
 const RequestPath = "./internal/tasks/request_logs"

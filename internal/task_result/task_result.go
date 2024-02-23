@@ -14,11 +14,6 @@ import (
 	"github.com/barkha06/sirius/internal/docgenerator"
 	"github.com/barkha06/sirius/internal/task_state"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/barkha06/sirius/internal/db"
-	"github.com/barkha06/sirius/internal/docgenerator"
-	"github.com/barkha06/sirius/internal/task_state"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -35,7 +30,7 @@ type FailedDocument struct {
 	SDKTiming   SDKTiming      `json:"sdkTimings" doc:"true"`
 	DocId       string         `json:"key" doc:"true"`
 	Status      bool           `json:"status"  doc:"true"`
-	Extra       map[string]any `json:"extra" doc:"true""`
+	Extra       map[string]any `json:"extra" doc:"true"`
 	ErrorString string         `json:"errorString"  doc:"true"`
 	Offset      int64          `json:"Offset" doc:"false"`
 }

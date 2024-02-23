@@ -13,11 +13,6 @@ import (
 	"github.com/barkha06/sirius/internal/task_result"
 	"github.com/barkha06/sirius/internal/tasks"
 	"github.com/barkha06/sirius/internal/tasks/util_sirius"
-
-	"github.com/barkha06/sirius/internal/db"
-	"github.com/barkha06/sirius/internal/task_result"
-	"github.com/barkha06/sirius/internal/tasks"
-	"github.com/barkha06/sirius/internal/tasks/util_sirius"
 )
 
 const FileName = "task-config.generated.md"

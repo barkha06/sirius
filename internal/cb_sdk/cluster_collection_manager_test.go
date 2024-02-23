@@ -11,12 +11,6 @@ import (
 	"github.com/barkha06/sirius/internal/template"
 	"github.com/bgadrian/fastfaker/faker"
 	"github.com/couchbase/gocb/v2"
-
-	"github.com/barkha06/sirius/internal/docgenerator"
-	"github.com/barkha06/sirius/internal/meta_data"
-	"github.com/barkha06/sirius/internal/template"
-	"github.com/couchbase/gocb/v2"
-	"github.com/jaswdr/faker"
 )
 
 func TestConfigConnectionManager(t *testing.T) {
@@ -70,7 +64,7 @@ func TestConfigConnectionManager(t *testing.T) {
 			docId := gen.BuildKey(key)
 			fake := faker.NewFastFaker()
 			fake.Seed(key)
-			doc := g.Template.GenerateDocument(fake, 100)
+			doc := g.Template.GenerateDocument(fake, docId, 100)
 			//log.Println(docId, doc)
 			_, e := c.Collection.Upsert(docId, doc, nil)
 			if e != nil {
