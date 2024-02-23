@@ -1,6 +1,7 @@
 package bulk_loading
 
 import (
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -719,6 +720,7 @@ func bulkUpsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 	databaseInfo tasks.DatabaseInformation, extra db.Extras, req *tasks.Request, identifier string, wg *sync.WaitGroup) {
 
 	defer wg.Done()
+	log.Println("batch started ", start, "  :  ", end)
 
 	skip := make(map[int64]struct{})
 	for _, offset := range state.KeyStates.Completed {

@@ -367,10 +367,9 @@ func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyVal
 		result.failBulk(keyValues, err)
 		return result
 	}
-
 	mongoClient := m.connectionManager.Clusters[connStr].MongoClusterClient
-	//fmt.Println("In CreateBulk(), Mongo Client:", mongoClient)
-
+	// opts1 := options.Client().ApplyURI(connStr)
+	// mongoClient, err := mongo.Connect(context.TODO(), opts1)
 	if err := validateStrings(extra.Database); err != nil {
 		result.failBulk(keyValues, errors.New("database name is missing"))
 		return result
@@ -393,13 +392,15 @@ func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyVal
 		models = append(models, model)
 	}
 	opts := options.BulkWrite().SetOrdered(false)
+	// log.Println("Lengths: ", len(models), len(keyValues))
 	mongoBulkWriteResult, err := mongoCollection.BulkWrite(context.TODO(), models, opts)
-	log.Println(mongoBulkWriteResult)
+	// log.Println(mongoBulkWriteResult)
 	if err != nil {
 		log.Println("MongoDB CreateBulk(): Bulk Insert Error:", err)
 		result.failBulk(keyValues, errors.New("MongoDB UpdateBulk(): Bulk Upsert Error"))
 		return result
-	} else if int64(len(keyValues)) != mongoBulkWriteResult.MatchedCount {
+	} else if int64(len(keyValues)) != mongoBulkWriteResult.ModifiedCount && int64(len(keyValues)) != mongoBulkWriteResult.UpsertedCount {
+		// log.Println("count: ", int64(len(keyValues)), mongoBulkWriteResult)
 		result.failBulk(keyValues, errors.New("MongoDB UpdateBulk(): Upserted Count does not match batch size"))
 		return result
 	}
@@ -408,13 +409,15 @@ func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyVal
 		upsertOp, ok := x.(*mongo.UpdateOneModel)
 		docid := upsertOp.Filter.(bson.M)["_id"]
 		value := upsertOp.Update.(bson.M)["$set"]
+		// log.Println("docid: value:   ", docid, value)
 		if !ok {
 			result.AddResult(docid.(string), nil, errors.New("decoding error GetOp"), false, -1)
 		} else {
 			result.AddResult(docid.(string), value, nil, true, keyToOffset[docid.(string)])
+			// log.Println("docid: value:   ", docid, value)
 		}
 	}
-
+	// mongoClient.Disconnect(context.TODO())
 	return result
 }
 

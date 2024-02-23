@@ -182,7 +182,7 @@ func loadDocumentsInBatches(task *GenericLoadingTask) {
 	// current default value of a batch for SDK batching is 100 but will be picked from os.env
 	if tasks.CheckBulkOperation(task.Operation) {
 		if task.Extra.SDKBatchSize > 0 {
-			batchSize = (task.OperationConfig.End - task.OperationConfig.Start) / int64(task.Extra.SDKBatchSize)
+			batchSize = int64(task.Extra.SDKBatchSize)
 		} else {
 			envBatchSize := os.Getenv("sirius_sdk_batch_size")
 			if len(envBatchSize) == 0 {
