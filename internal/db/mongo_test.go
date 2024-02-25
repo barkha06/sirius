@@ -15,8 +15,12 @@ func TestMongoDB(t *testing.T) {
 		This test does the following
 		1. Insert in the range of 0-10
 		2. Bulk Insert documents in the range of 10-50
-		3. Delete in the range of 40-50
-		4. Bulk Delete documents in the range of 0-40
+		3. Update Documents from range 0-10
+		4. Bulk Update documents in the range 10-50
+		5. Read Docs from 0-10 and check if they are updated
+		6. Bulk Read Docs in the range 10-50 and check if they are updated
+		7. Delete in the range of 40-50
+		8. Bulk Delete documents in the range of 0-40
 	*/
 
 	db, err := ConfigDatabase("mongodb")
