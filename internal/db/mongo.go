@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/barkha06/sirius/internal/sdk_mongo"
 
@@ -279,8 +280,39 @@ func (m Mongo) Update(connStr, username, password string, keyValue KeyValue, ext
 }
 
 func (m Mongo) Read(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
-	//TODO implement me
-	panic("implement me")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newMongoOperationResult(key, nil, err, false, offset)
+	}
+
+	databaseName := extra.Database
+	collectionName := extra.Collection
+
+	if err := validateStrings(databaseName); err != nil {
+		return newMongoOperationResult(key, nil, errors.New("MongoDB database name is missing"), false, offset)
+	}
+	if err := validateStrings(collectionName); err != nil {
+		return newMongoOperationResult(key, nil, errors.New("MongoDB collection name is missing"), false, offset)
+	}
+
+	mongoCollObj, err1 := m.connectionManager.GetMongoCollection(connStr, username, password, nil, databaseName, collectionName)
+	if err1 != nil {
+		return newMongoOperationResult(key, nil, err1, false, offset)
+	}
+
+	mongoCollection := mongoCollObj.MongoCollection
+	filter := bson.M{"_id": key}
+	var result map[string]interface{}
+	err2 := mongoCollection.FindOne(context.TODO(), filter, nil).Decode(&result)
+	if err2 != nil {
+		return newMongoOperationResult(key, nil, err2, false, offset)
+	}
+	if result == nil {
+		return newMongoOperationResult(key, nil,
+			fmt.Errorf("result is nil even after successful READ operation %s ", connStr), false,
+			offset)
+	}
+	return newMongoOperationResult(key, result, nil, true, offset)
+
 }
 
 func (m Mongo) Delete(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
@@ -323,7 +355,40 @@ func (m Mongo) Delete(connStr, username, password, key string, offset int64, ext
 
 func (m Mongo) Touch(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
 	//TODO implement me
-	panic("implement me")
+	// panic("implement me")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newMongoOperationResult(key, nil, err, false, offset)
+	}
+
+	databaseName := extra.Database
+	collectionName := extra.Collection
+
+	if err := validateStrings(databaseName); err != nil {
+		return newMongoOperationResult(key, nil, errors.New("MongoDB database name is missing"), false, offset)
+	}
+	if err := validateStrings(collectionName); err != nil {
+		// TODO default collection implementation for MongoDB
+		return newMongoOperationResult(key, nil, errors.New("MongoDB collection name is missing"), false, offset)
+	}
+
+	mongoCollObj, err1 := m.connectionManager.GetMongoCollection(connStr, username, password, nil, databaseName, collectionName)
+	if err1 != nil {
+		return newMongoOperationResult(key, nil, err1, false, offset)
+	}
+
+	mongoCollection := mongoCollObj.MongoCollection
+	newExpirationTime := time.Now().Add((time.Minute) * time.Duration(extra.Expiry)) // Add 1 hour to current time
+
+	// Update the document's expiration time
+	filter := bson.M{"_id": key}
+	update := bson.M{"$set": bson.M{"expireAt": newExpirationTime}}
+
+	// Perform the update operation
+	_, err := mongoCollection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		return newMongoOperationResult(key, nil, err, false, offset)
+	}
+	return newMongoOperationResult(key, nil, nil, true, offset)
 }
 
 func (m Mongo) InsertSubDoc(connStr, username, password, key string, keyValues []KeyValue, offset int64, extra Extras) SubDocOperationResult {
@@ -553,10 +618,9 @@ func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyVal
 		result.failBulk(keyValues, err)
 		return result
 	}
-
 	mongoClient := m.connectionManager.Clusters[connStr].MongoClusterClient
-	//fmt.Println("In CreateBulk(), Mongo Client:", mongoClient)
-
+	// opts1 := options.Client().ApplyURI(connStr)
+	// mongoClient, err := mongo.Connect(context.TODO(), opts1)
 	if err := validateStrings(extra.Database); err != nil {
 		result.failBulk(keyValues, errors.New("database name is missing"))
 		return result
@@ -579,13 +643,15 @@ func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyVal
 		models = append(models, model)
 	}
 	opts := options.BulkWrite().SetOrdered(false)
+	// log.Println("Lengths: ", len(models), len(keyValues))
 	mongoBulkWriteResult, err := mongoCollection.BulkWrite(context.TODO(), models, opts)
-	log.Println(mongoBulkWriteResult)
+	// log.Println(mongoBulkWriteResult)
 	if err != nil {
-		log.Println("MongoDB CreateBulk(): Bulk Insert Error:", err)
+		log.Println("MongoDB UpsertBulk(): Bulk Insert Error:", err)
 		result.failBulk(keyValues, errors.New("MongoDB UpdateBulk(): Bulk Upsert Error"))
 		return result
-	} else if int64(len(keyValues)) != mongoBulkWriteResult.MatchedCount {
+	} else if int64(len(keyValues)) != mongoBulkWriteResult.ModifiedCount && int64(len(keyValues)) != mongoBulkWriteResult.UpsertedCount {
+		// log.Println("count: ", int64(len(keyValues)), mongoBulkWriteResult)
 		result.failBulk(keyValues, errors.New("MongoDB UpdateBulk(): Upserted Count does not match batch size"))
 		return result
 	}
@@ -594,13 +660,15 @@ func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyVal
 		upsertOp, ok := x.(*mongo.UpdateOneModel)
 		docid := upsertOp.Filter.(bson.M)["_id"]
 		value := upsertOp.Update.(bson.M)["$set"]
+		// log.Println("docid: value:   ", docid, value)
 		if !ok {
 			result.AddResult(docid.(string), nil, errors.New("decoding error GetOp"), false, -1)
 		} else {
 			result.AddResult(docid.(string), value, nil, true, keyToOffset[docid.(string)])
+			// log.Println("docid: value:   ", docid, value)
 		}
 	}
-
+	// mongoClient.Disconnect(context.TODO())
 	return result
 }
 
@@ -670,6 +738,59 @@ func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValu
 }
 
 func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	//TODO implement me
-	panic("implement me")
+	result := newMongoBulkOperation()
+
+	if err := validateStrings(connStr, username, password); err != nil {
+		result.failBulk(keyValues, err)
+		return result
+	}
+
+	databaseName := extra.Database
+	collectionName := extra.Collection
+
+	if err := validateStrings(databaseName); err != nil {
+		result.failBulk(keyValues, errors.New("MongoDB database name is missing"))
+		return result
+	}
+
+	if err := validateStrings(collectionName); err != nil {
+		result.failBulk(keyValues, errors.New("MongoDB collection name is missing"))
+		return result
+	}
+
+	mongoCollObj, err1 := m.connectionManager.GetMongoCollection(connStr, username, password, nil, databaseName, collectionName)
+	if err1 != nil {
+		result.failBulk(keyValues, err1)
+		return result
+	}
+
+	mongoCollection := mongoCollObj.MongoCollection
+
+	var docIDs []string
+	keyToOffset := make(map[string]int64)
+
+	for _, x := range keyValues {
+		docIDs = append(docIDs, x.Key)
+		keyToOffset[x.Key] = x.Offset
+	}
+	filter := bson.M{"_id": bson.M{"$in": docIDs}}
+
+	cursor, err2 := mongoCollection.Find(context.TODO(), filter)
+	if err2 != nil {
+		log.Println("MongoDB ReadBulk(): Bulk Read Error:", err2)
+		result.failBulk(keyValues, err2)
+		return result
+	}
+	var results []map[string]interface{}
+	if err := cursor.All(context.TODO(), &results); err != nil {
+		result.failBulk(keyValues, err)
+	} else if int64(len(keyValues)) != int64(len(results)) {
+		result.failBulk(keyValues, errors.New("MongoDB ReadBulk(): Read Count does not match batch size"))
+		return result
+	}
+	for _, resultdoc := range results {
+		// key=resultdoc.(*gen.)
+		result.AddResult(resultdoc["_id"].(string), nil, nil, true, keyToOffset[resultdoc["_id"].(string)])
+	}
+	return result
 }

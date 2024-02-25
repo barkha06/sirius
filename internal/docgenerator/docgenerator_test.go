@@ -2,11 +2,11 @@ package docgenerator
 
 import (
 	"log"
-	"math/rand"
+
 	"testing"
 
 	"github.com/barkha06/sirius/internal/template"
-	"github.com/jaswdr/faker"
+	"github.com/bgadrian/fastfaker/faker"
 )
 
 func TestGenerator_GetNextKey(t *testing.T) {
@@ -22,11 +22,10 @@ func TestGenerator_GetNextKey(t *testing.T) {
 		key := seed + i
 		docId := g.BuildKey(key)
 		log.Println(docId)
-		fake := faker.NewWithSeed(rand.NewSource(int64(key)))
-		_, err := g.Template.GenerateDocument(docId, &fake, 1024)
-		if err != nil {
-			t.Fail()
-		}
+		fake := faker.NewFastFaker()
+		fake.Seed(key)
+		_ = g.Template.GenerateDocument(fake, docId, 1024)
+
 	}
 
 }

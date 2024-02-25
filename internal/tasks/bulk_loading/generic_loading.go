@@ -18,7 +18,6 @@ import (
 	"github.com/barkha06/sirius/internal/task_state"
 	"github.com/barkha06/sirius/internal/tasks"
 	"github.com/barkha06/sirius/internal/template"
-	"golang.org/x/sync/errgroup"
 )
 
 type GenericLoadingTask struct {
@@ -154,7 +153,6 @@ func (t *GenericLoadingTask) Do() {
 	loadDocumentsInBatches(t)
 
 	t.Result.Success = t.OperationConfig.End - t.OperationConfig.Start - t.Result.Failure
-
 	_ = t.TearUp()
 }
 
@@ -182,7 +180,7 @@ func loadDocumentsInBatches(task *GenericLoadingTask) {
 	// current default value of a batch for SDK batching is 100 but will be picked from os.env
 	if tasks.CheckBulkOperation(task.Operation) {
 		if task.Extra.SDKBatchSize > 0 {
-			batchSize = (task.OperationConfig.End - task.OperationConfig.Start) / int64(task.Extra.SDKBatchSize)
+			batchSize = int64(task.Extra.SDKBatchSize)
 		} else {
 			envBatchSize := os.Getenv("sirius_sdk_batch_size")
 			if len(envBatchSize) == 0 {
@@ -200,6 +198,7 @@ func loadDocumentsInBatches(task *GenericLoadingTask) {
 	}
 	remainingItems := (task.OperationConfig.End - task.OperationConfig.Start) - (numOfBatches * batchSize)
 
+	t1 := time.Now()
 	for i := int64(0); i < numOfBatches; i++ {
 		batchStart := i * batchSize
 		batchEnd := (i + 1) * batchSize
@@ -242,7 +241,10 @@ func loadDocumentsInBatches(task *GenericLoadingTask) {
 	}
 
 	wg.Wait()
+	log.Println("result ", task.ResultSeed, " time took: ", time.Now().Sub(t1))
 	log.Println("completed :- ", task.Operation, task.IdentifierToken, task.ResultSeed)
+	task.PostTaskExceptionHandling()
+
 }
 
 // loadBatch will enqueue the batch to thread pool. if the queue is full,
@@ -272,137 +274,137 @@ func (t *GenericLoadingTask) PostTaskExceptionHandling() {
 	t.Result.StopStoringResult()
 	t.State.StopStoringState()
 
-	if t.OperationConfig.Exceptions.RetryAttempts <= 0 {
-		return
-	}
-
-	// Get all the errorOffset
-	errorOffsetMaps := t.State.ReturnErrOffset()
-	// Get all the completed offset
-	completedOffsetMaps := t.State.ReturnCompletedOffset()
-
-	// For the offset in ignore exceptions :-> move them from error to completed
-	shiftErrToCompletedOnIgnore(t.OperationConfig.Exceptions.IgnoreExceptions, t.Result, errorOffsetMaps,
-		completedOffsetMaps)
-
-	if t.OperationConfig.Exceptions.RetryAttempts > 0 {
-
-		exceptionList := GetExceptions(t.Result, t.OperationConfig.Exceptions.RetryExceptions)
-
-		// For the retry exceptions :-> move them on success after retrying from err_sirius to completed
-		for _, exception := range exceptionList {
-
-			errorOffsetListMap := make([]map[int64]RetriedResult, 0)
-			for _, failedDocs := range t.Result.BulkError[exception] {
-				m := make(map[int64]RetriedResult)
-				m[failedDocs.Offset] = RetriedResult{}
-				errorOffsetListMap = append(errorOffsetListMap, m)
-			}
-
-			routineLimiter := make(chan struct{}, tasks.MaxConcurrentRoutines)
-			dataChannel := make(chan map[int64]RetriedResult, tasks.MaxConcurrentRoutines)
-			wg := errgroup.Group{}
-			for _, x := range errorOffsetListMap {
-				dataChannel <- x
-				routineLimiter <- struct{}{}
-				wg.Go(func() error {
-					//	m := <-dataChannel
-					//	var offset = int64(-1)
-					//	for k, _ := range m {
-					//		offset = k
-					//	}
-					//
-					//	l := loadingTask{
-					//		start:           offset,
-					//		end:             offset + 1,
-					//		operationConfig: t.OperationConfig,
-					//		seed:            t.MetaData.Seed,
-					//		operation:       t.Operation,
-					//		rerun:           true,
-					//		gen:             t.gen,
-					//		state:           t.State,
-					//		result:          t.Result,
-					//		databaseInfo:    tasks.DatabaseInformation{},
-					//		extra:           db.Extras{},
-					//		req:             t.req,
-					//		identifier:      t.IdentifierToken,
-					//		wg:              nil,}
-					//
-					//key := offset + t.MetaData.Seed
-					//docId := t.gen.BuildKey(key)
-					//
-					//fake := faker.NewWithSeed(rand.NewSource(int64(key)))
-					//doc, _ := t.gen.Template.GenerateDocument(&fake, t.OperationConfig.DocSize)
-					//
-					//retry := 0
-					//var err error
-					//result := &gocb.MutationResult{}
-					//
-					//initTime := time.Now().UTC().Format(time.RFC850)
-					//
-					//for retry = 0; retry <= t.OperationConfig.Exceptions.RetryAttempts; retry++ {
-					//	result, err = collectionObject.Collection.Insert(docId, doc, &gocb.InsertOptions{
-					//		DurabilityLevel: cb_sdk.GetDurability(t.InsertOptions.Durability),
-					//		PersistTo:       t.InsertOptions.PersistTo,
-					//		ReplicateTo:     t.InsertOptions.ReplicateTo,
-					//		Timeout:         time.Duration(t.InsertOptions.Timeout) * time.Second,
-					//		Expiry:          time.Duration(t.InsertOptions.Expiry) * time.Second,
-					//	})
-					//
-					//	if err == nil {
-					//		break
-					//	}
-					//}
-					//
-					//if err != nil {
-					//	if errors.Is(err, gocb.ErrDocumentExists) {
-					//		if tempResult, err1 := collectionObject.Collection.Get(docId, &gocb.GetOptions{
-					//			Timeout: 5 * time.Second,
-					//		}); err1 == nil {
-					//			m[offset] = RetriedResult{
-					//				Status:   true,
-					//				CAS:      uint64(tempResult.Cas()),
-					//				InitTime: initTime,
-					//				AckTime:  time.Now().UTC().Format(time.RFC850),
-					//			}
-					//		} else {
-					//			m[offset] = RetriedResult{
-					//				Status:   true,
-					//				InitTime: initTime,
-					//				AckTime:  time.Now().UTC().Format(time.RFC850),
-					//			}
-					//		}
-					//	} else {
-					//		m[offset] = RetriedResult{
-					//			InitTime: initTime,
-					//			AckTime:  time.Now().UTC().Format(time.RFC850),
-					//		}
-					//	}
-					//} else {
-					//	m[offset] = RetriedResult{
-					//		Status:   true,
-					//		CAS:      uint64(result.Cas()),
-					//		InitTime: initTime,
-					//		AckTime:  time.Now().UTC().Format(time.RFC850),
-					//	}
-					//}
-					<-dataChannel
-					<-routineLimiter
-					return nil
-				})
-			}
-			_ = wg.Wait()
-
-			shiftErrToCompletedOnRetrying(exception, t.Result, errorOffsetListMap, errorOffsetMaps,
-				completedOffsetMaps)
-		}
-	}
-
-	t.State.MakeCompleteKeyFromMap(completedOffsetMaps)
-	t.State.MakeErrorKeyFromMap(errorOffsetMaps)
-	t.Result.Failure = int64(len(t.State.KeyStates.Err))
-	t.Result.Success = t.OperationConfig.End - t.OperationConfig.Start - t.Result.Failure
-	log.Println("completed retrying:- ", t.Operation, t.IdentifierToken, t.ResultSeed)
+	//if t.OperationConfig.Exceptions.RetryAttempts <= 0 {
+	//	return
+	//}
+	//
+	//// Get all the errorOffset
+	//errorOffsetMaps := t.State.ReturnErrOffset()
+	//// Get all the completed offset
+	//completedOffsetMaps := t.State.ReturnCompletedOffset()
+	//
+	//// For the offset in ignore exceptions :-> move them from error to completed
+	//shiftErrToCompletedOnIgnore(t.OperationConfig.Exceptions.IgnoreExceptions, t.Result, errorOffsetMaps,
+	//	completedOffsetMaps)
+	//
+	//if t.OperationConfig.Exceptions.RetryAttempts > 0 {
+	//
+	//	exceptionList := GetExceptions(t.Result, t.OperationConfig.Exceptions.RetryExceptions)
+	//
+	//	// For the retry exceptions :-> move them on success after retrying from err_sirius to completed
+	//	for _, exception := range exceptionList {
+	//
+	//		errorOffsetListMap := make([]map[int64]RetriedResult, 0)
+	//		for _, failedDocs := range t.Result.BulkError[exception] {
+	//			m := make(map[int64]RetriedResult)
+	//			m[failedDocs.Offset] = RetriedResult{}
+	//			errorOffsetListMap = append(errorOffsetListMap, m)
+	//		}
+	//
+	//		routineLimiter := make(chan struct{}, tasks.MaxConcurrentRoutines)
+	//		dataChannel := make(chan map[int64]RetriedResult, tasks.MaxConcurrentRoutines)
+	//		wg := errgroup.Group{}
+	//		for _, x := range errorOffsetListMap {
+	//			dataChannel <- x
+	//			routineLimiter <- struct{}{}
+	//			wg.Go(func() error {
+	//				//	m := <-dataChannel
+	//				//	var offset = int64(-1)
+	//				//	for k, _ := range m {
+	//				//		offset = k
+	//				//	}
+	//				//
+	//				//	l := loadingTask{
+	//				//		start:           offset,
+	//				//		end:             offset + 1,
+	//				//		operationConfig: t.OperationConfig,
+	//				//		seed:            t.MetaData.Seed,
+	//				//		operation:       t.Operation,
+	//				//		rerun:           true,
+	//				//		gen:             t.gen,
+	//				//		state:           t.State,
+	//				//		result:          t.Result,
+	//				//		databaseInfo:    tasks.DatabaseInformation{},
+	//				//		extra:           db.Extras{},
+	//				//		req:             t.req,
+	//				//		identifier:      t.IdentifierToken,
+	//				//		wg:              nil,}
+	//				//
+	//				//key := offset + t.MetaData.Seed
+	//				//docId := t.gen.BuildKey(key)
+	//				//
+	//				//fake := faker.NewWithSeed(rand.NewSource(int64(key)))
+	//				//doc, _ := t.gen.Template.GenerateDocument(&fake, t.OperationConfig.DocSize)
+	//				//
+	//				//retry := 0
+	//				//var err error
+	//				//result := &gocb.MutationResult{}
+	//				//
+	//				//initTime := time.Now().UTC().Format(time.RFC850)
+	//				//
+	//				//for retry = 0; retry <= t.OperationConfig.Exceptions.RetryAttempts; retry++ {
+	//				//	result, err = collectionObject.Collection.Insert(docId, doc, &gocb.InsertOptions{
+	//				//		DurabilityLevel: cb_sdk.GetDurability(t.InsertOptions.Durability),
+	//				//		PersistTo:       t.InsertOptions.PersistTo,
+	//				//		ReplicateTo:     t.InsertOptions.ReplicateTo,
+	//				//		Timeout:         time.Duration(t.InsertOptions.Timeout) * time.Second,
+	//				//		Expiry:          time.Duration(t.InsertOptions.Expiry) * time.Second,
+	//				//	})
+	//				//
+	//				//	if err == nil {
+	//				//		break
+	//				//	}
+	//				//}
+	//				//
+	//				//if err != nil {
+	//				//	if errors.Is(err, gocb.ErrDocumentExists) {
+	//				//		if tempResult, err1 := collectionObject.Collection.Get(docId, &gocb.GetOptions{
+	//				//			Timeout: 5 * time.Second,
+	//				//		}); err1 == nil {
+	//				//			m[offset] = RetriedResult{
+	//				//				Status:   true,
+	//				//				CAS:      uint64(tempResult.Cas()),
+	//				//				InitTime: initTime,
+	//				//				AckTime:  time.Now().UTC().Format(time.RFC850),
+	//				//			}
+	//				//		} else {
+	//				//			m[offset] = RetriedResult{
+	//				//				Status:   true,
+	//				//				InitTime: initTime,
+	//				//				AckTime:  time.Now().UTC().Format(time.RFC850),
+	//				//			}
+	//				//		}
+	//				//	} else {
+	//				//		m[offset] = RetriedResult{
+	//				//			InitTime: initTime,
+	//				//			AckTime:  time.Now().UTC().Format(time.RFC850),
+	//				//		}
+	//				//	}
+	//				//} else {
+	//				//	m[offset] = RetriedResult{
+	//				//		Status:   true,
+	//				//		CAS:      uint64(result.Cas()),
+	//				//		InitTime: initTime,
+	//				//		AckTime:  time.Now().UTC().Format(time.RFC850),
+	//				//	}
+	//				//}
+	//				<-dataChannel
+	//				<-routineLimiter
+	//				return nil
+	//			})
+	//		}
+	//		_ = wg.Wait()
+	//
+	//		shiftErrToCompletedOnRetrying(exception, t.Result, errorOffsetListMap, errorOffsetMaps,
+	//			completedOffsetMaps)
+	//	}
+	//}
+	//
+	//t.State.MakeCompleteKeyFromMap(completedOffsetMaps)
+	//t.State.MakeErrorKeyFromMap(errorOffsetMaps)
+	//t.Result.Failure = int64(len(t.State.KeyStates.Err))
+	//t.Result.Success = t.OperationConfig.End - t.OperationConfig.Start - t.Result.Failure
+	//log.Println("completed retrying:- ", t.Operation, t.IdentifierToken, t.ResultSeed)
 }
 
 func (t *GenericLoadingTask) MatchResultSeed(resultSeed string) (bool, error) {

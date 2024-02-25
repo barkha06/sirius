@@ -7,8 +7,8 @@ import (
 	"github.com/shettyh/threadpool"
 )
 
-var MaxConcurrentRoutines = 512
-var MaxThreads = 128
+var MaxConcurrentRoutines = 32
+var MaxThreads = 250
 var MAXQueueSize int64 = 1000000
 var Pool = threadpool.NewThreadPool(MaxThreads, MAXQueueSize)
 

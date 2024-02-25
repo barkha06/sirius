@@ -11,7 +11,7 @@ import (
 	"github.com/barkha06/sirius/internal/task_result"
 	"github.com/barkha06/sirius/internal/task_state"
 	"github.com/barkha06/sirius/internal/tasks"
-	"github.com/jaswdr/faker"
+	"github.com/bgadrian/fastfaker/faker"
 	"golang.org/x/exp/slices"
 )
 
@@ -229,14 +229,14 @@ func retracePreviousMutations(r *tasks.Request, collectionIdentifier string, off
 					}
 					if offset >= (u.OperationConfig.Start) && (offset < u.OperationConfig.End) && resultSeed != u.
 						ResultSeed {
-
 						if u.State == nil {
 							u.State = task_state.ConfigTaskState(resultSeed)
 						}
-						comOffset := u.State.ReturnCompletedOffset()
-						if _, ok := comOffset[offset]; ok {
-							doc, _ = gen.Template.UpdateDocument(u.OperationConfig.FieldsToChange, doc,
-								u.OperationConfig.DocSize, fake)
+						if v, ok1 := u.State.KeyStates[offset]; ok1 {
+							if v == 1 {
+								doc, _ = gen.Template.UpdateDocument(u.OperationConfig.FieldsToChange, doc,
+									u.OperationConfig.DocSize, fake)
+							}
 						}
 					}
 
@@ -271,12 +271,13 @@ func retracePreviousSubDocMutations(r *tasks.Request, collectionIdentifier strin
 						if u.State == nil {
 							u.State = task_state.ConfigTaskState(resultSeed)
 						}
-						errOffset := u.State.ReturnErrOffset()
-						if _, ok := errOffset[offset]; ok {
-							continue
-						} else {
-							result = gen.Template.GenerateSubPathAndValue(fake, u.OperationConfig.DocSize)
+
+						if v, ok2 := u.State.KeyStates[offset]; ok2 {
+							if v == 1 {
+								result = gen.Template.GenerateSubPathAndValue(fake, u.OperationConfig.DocSize)
+							}
 						}
+
 					}
 				}
 			}

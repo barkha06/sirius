@@ -906,7 +906,6 @@ func (c *Couchbase) CreateBulk(connStr, username, password string, keyValues []K
 	}
 
 	var bulkOp []gocb.BulkOp
-
 	keyToOffset := make(map[string]int64)
 
 	for _, x := range keyValues {
@@ -941,13 +940,6 @@ func (c *Couchbase) CreateBulk(connStr, username, password string, keyValues []K
 			result.AddResult(insertOp.ID, insertOp.Value, nil, true, uint64(insertOp.Result.Cas()),
 				keyToOffset[insertOp.ID])
 		}
-		//if mutationResults[x.Key].err != nil {
-		//	result.AddResult(x.Key, x.Doc, mutationResults[x.Key].err, false,
-		//		uint64(mutationResults[x.Key].result.Cas()))
-		//} else {
-		//	result.AddResult(x.Key, x.Doc, nil, true, uint64(mutationResults[x.Key].result.Cas()))
-		//}
-
 	}
 	return result
 }
