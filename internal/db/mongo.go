@@ -397,8 +397,50 @@ func (m Mongo) ReadSubDoc(connStr, username, password, key string, keyValue []Ke
 }
 
 func (m Mongo) DeleteSubDoc(connStr, username, password, key string, keyValue []KeyValue, offset int64, extra Extras) SubDocOperationResult {
-	//TODO implement me
-	panic("implement me")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, err, false, offset)
+	}
+
+	databaseName := extra.Database
+	collectionName := extra.Collection
+
+	if err := validateStrings(databaseName); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, errors.New("MongoDB Database name is missing"), false, offset)
+	}
+
+	if err := validateStrings(collectionName); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, errors.New("MongoDB Collection name is missing"), false, offset)
+	}
+
+	mongoClient := m.connectionManager.Clusters[connStr].MongoClusterClient
+	mongoCollection := mongoClient.Database(databaseName).Collection(collectionName)
+
+	for _, x := range keyValue {
+
+		filter := bson.M{"_id": key}
+
+		// Defines the update to remove the sub-document from the existing document
+		update := bson.M{
+			"$unset": bson.M{
+				x.Key: "",
+			},
+		}
+
+		result, err := mongoCollection.UpdateOne(context.TODO(), filter, update)
+		if err != nil {
+			log.Println("In MongoDB DeleteSubDoc, error:", err)
+			return newMongoSubDocOperationResult(key, keyValue, err, false, offset)
+		}
+
+		// Checking if the update operation was successful
+		if result.ModifiedCount == 0 && result.UpsertedCount == 0 {
+			log.Println("No documents matched the filter or no modifications were made")
+			return newMongoSubDocOperationResult(key, keyValue,
+				fmt.Errorf("no documents matched the filter or no modifications were made"), false, offset)
+		}
+	}
+
+	return newMongoSubDocOperationResult(key, keyValue, nil, true, offset)
 }
 
 func (m Mongo) CreateBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
@@ -506,8 +548,6 @@ func (m Mongo) Close(connStr string) error {
 }
 
 func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	//TODO implement me
-	// panic("implement me")
 	result := newMongoBulkOperation()
 	if err := validateStrings(connStr, username, password); err != nil {
 		result.failBulk(keyValues, err)
@@ -575,7 +615,6 @@ func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyVal
 	databaseName := extra.Database
 	collectionName := extra.Collection
 
-
 	if err := validateStrings(databaseName); err != nil {
 		result.failBulk(keyValues, errors.New("MongoDB database name is missing"))
 		return result
@@ -630,22 +669,7 @@ func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValu
 	panic("implement me")
 }
 
-// func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-// 	//TODO implement me
-// 	panic("implement me")
-// }
-
-// func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-// 	//TODO implement me
-// 	panic("implement me")
-// }
-
-// func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-// 	//TODO implement me
-// 	panic("implement me")
-// }
-
-// func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-// 	//TODO implement me
-// 	panic("implement me")
-// }
+func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
+	//TODO implement me
+	panic("implement me")
+}
