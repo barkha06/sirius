@@ -443,7 +443,53 @@ func (m Mongo) InsertSubDoc(connStr, username, password, key string, keyValues [
 
 func (m Mongo) UpsertSubDoc(connStr, username, password, key string, keyValue []KeyValue, offset int64, extra Extras) SubDocOperationResult {
 	//TODO implement me
-	panic("implement me")
+	// panic("implement me")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, err, false, offset)
+	}
+
+	databaseName := extra.Database
+	collectionName := extra.Collection
+
+	if err := validateStrings(databaseName); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, errors.New("MongoDB Database name is missing"), false, offset)
+	}
+
+	if err := validateStrings(collectionName); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, errors.New("MongoDB Collection name is missing"), false, offset)
+	}
+
+	mongoClient := m.connectionManager.Clusters[connStr].MongoClusterClient
+	mongoCollection := mongoClient.Database(databaseName).Collection(collectionName)
+	for _, x := range keyValue {
+		// filter defines on what basis we find the doc to insert the sub documents
+		filter := bson.M{"_id": key}
+		// Defines the update to add a sub-document to the existing document
+		update := bson.M{
+			"$set": bson.M{
+				x.Key: x.Doc,
+			},
+			"$inc": bson.M{
+				"mutated": 1,
+			},
+		}
+
+		result, err := mongoCollection.UpdateOne(context.TODO(), filter, update)
+		if err != nil {
+			log.Println("In MongoDB InsertSubDoc(), error:", err)
+			return newMongoSubDocOperationResult(key, keyValue, err, false, offset)
+		}
+
+		// Checking if the update operation was successful
+		if result.UpsertedCount == 0 && result.ModifiedCount == 0 {
+			log.Println("No documents matched the filter or no modifications were made")
+			return newMongoSubDocOperationResult(key, keyValue,
+				fmt.Errorf("no documents matched the filter or no modifications were made"), false, offset)
+		}
+	}
+
+	return newMongoSubDocOperationResult(key, keyValue, nil, false, offset)
+
 }
 
 func (m Mongo) Increment(connStr, username, password, key string, keyValue []KeyValue, offset int64, extra Extras) SubDocOperationResult {
@@ -694,7 +740,65 @@ func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyVal
 
 func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
 	//TODO implement me
-	panic("implement me")
+	// panic("implement me")
+	result := newMongoBulkOperation()
+	if err := validateStrings(connStr, username, password); err != nil {
+		result.failBulk(keyValues, err)
+		return result
+	}
+	mongoClient := m.connectionManager.Clusters[connStr].MongoClusterClient
+	// opts1 := options.Client().ApplyURI(connStr)
+	// mongoClient, err := mongo.Connect(context.TODO(), opts1)
+	if err := validateStrings(extra.Database); err != nil {
+		result.failBulk(keyValues, errors.New("database name is missing"))
+		return result
+	}
+	if err := validateStrings(extra.Collection); err != nil {
+		result.failBulk(keyValues, errors.New("collection name is missing"))
+		return result
+	}
+	mongoDatabase := mongoClient.Database(extra.Database)
+	mongoCollection := mongoDatabase.Collection(extra.Collection)
+	newExpirationTime := time.Now().Add((time.Minute) * time.Duration(extra.Expiry)) // Add 1 hour to current time
+
+	var models []mongo.WriteModel
+	keyToOffset := make(map[string]int64)
+	for _, x := range keyValues {
+		keyToOffset[x.Key] = x.Offset
+		filter := bson.M{"_id": x.Key}
+		update := bson.M{"$set": bson.M{"expireAt": newExpirationTime}}
+		// result, err2 := mongoCollection.UpdateOne(context.TODO(), filter, update, options.Update().SetUpsert(true))
+		model := mongo.NewUpdateOneModel().SetFilter(filter).SetUpdate(update).SetUpsert(true)
+		models = append(models, model)
+	}
+	opts := options.BulkWrite().SetOrdered(false)
+	// log.Println("Lengths: ", len(models), len(keyValues))
+	mongoBulkWriteResult, err := mongoCollection.BulkWrite(context.TODO(), models, opts)
+	// log.Println(mongoBulkWriteResult)
+	if err != nil {
+		log.Println("MongoDB UpsertBulk(): Bulk Insert Error:", err)
+		result.failBulk(keyValues, errors.New("MongoDB UpdateBulk(): Bulk Upsert Error"))
+		return result
+	} else if int64(len(keyValues)) != mongoBulkWriteResult.ModifiedCount && int64(len(keyValues)) != mongoBulkWriteResult.UpsertedCount {
+		// log.Println("count: ", int64(len(keyValues)), mongoBulkWriteResult)
+		result.failBulk(keyValues, errors.New("MongoDB UpdateBulk(): Upserted Count does not match batch size"))
+		return result
+	}
+
+	for _, x := range models {
+		upsertOp, ok := x.(*mongo.UpdateOneModel)
+		docid := upsertOp.Filter.(bson.M)["_id"]
+		value := upsertOp.Update.(bson.M)["$set"]
+		// log.Println("docid: value:   ", docid, value)
+		if !ok {
+			result.AddResult(docid.(string), nil, errors.New("decoding error GetOp"), false, -1)
+		} else {
+			result.AddResult(docid.(string), value, nil, true, keyToOffset[docid.(string)])
+			// log.Println("docid: value:   ", docid, value)
+		}
+	}
+	// mongoClient.Disconnect(context.TODO())
+	return result
 }
 
 func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
