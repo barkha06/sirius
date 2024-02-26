@@ -3,9 +3,8 @@
 /internal/server_requests/server_requests_logs
 /internal/tasks/request_logs
 /internal/task_state/task_state_logs
+internal/.DS_Store
 /sirius
 /vendor
 /sirius_log
-.DS_Store
-internal/.DS_Store
 .DS_Store
