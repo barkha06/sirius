@@ -892,8 +892,83 @@ func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue
 		return result
 	}
 	for _, resultdoc := range results {
-		// key=resultdoc.(*gen.)
 		result.AddResult(resultdoc["_id"].(string), nil, nil, true, keyToOffset[resultdoc["_id"].(string)])
 	}
 	return result
 }
+
+// func (m Mongo) Validate(connStr1, username1, password1 string, connStr2, username2, password2 string, keyValues []KeyValue, extra Extras, gen *docgenerator.Generator) BulkOperationResult {
+// 	//set up columnar cluster
+// 	result := newMongoBulkOperation()
+
+// 	if err := validateStrings(connStr1, username1, connStr2, username2, password2); err != nil {
+// 		result.failBulk(keyValues, err)
+// 		return result
+// 	}
+
+// 	databaseName := extra.Database
+// 	collectionName := extra.Collection
+
+// 	if err := validateStrings(databaseName); err != nil {
+// 		result.failBulk(keyValues, errors.New("MongoDB database name is missing"))
+// 		return result
+// 	}
+
+// 	if err := validateStrings(collectionName); err != nil {
+// 		result.failBulk(keyValues, errors.New("MongoDB collection name is missing"))
+// 		return result
+// 	}
+// 	mongoCollObj, err1 := m.connectionManager.GetMongoCollection(connStr, username, password, nil, databaseName, collectionName)
+// 	if err1 != nil {
+// 		result.failBulk(keyValues, err1)
+// 		return result
+// 	}
+
+// 	mongoCollection := mongoCollObj.MongoCollection
+
+// 	var docIDs []string
+// 	keyToOffset := make(map[string]int64)
+
+// 	for _, x := range keyValues {
+// 		docIDs = append(docIDs, x.Key)
+// 		keyToOffset[x.Key] = x.Offset
+// 	}
+// 	filter := bson.M{"_id": bson.M{"$in": docIDs}}
+
+// 	cursor, err2 := mongoCollection.Find(context.TODO(), filter, options.Find().SetSort(bson.M{"_id": 1}))
+// 	if err2 != nil {
+// 		log.Println("MongoDB ReadBulk(): Bulk Read Error:", err2)
+// 		result.failBulk(keyValues, err2)
+// 		return result
+// 	}
+// 	query := "SELECT * from `mongo`.`scope`.`TestCollectionSirius2s` where id IN $ids order by id asc;"
+// 	params := map[string]interface{}{
+// 		"ids": docIDs,
+// 	}
+// 	cbresult, _ := cluster.AnalyticsQuery(query, &gocb.QueryOptions{NamedParameters: params})
+
+// 	var mongoresults []map[string]interface{}
+// 	if err := cursor.All(context.TODO(), &mongoresults); err != nil {
+// 		result.failBulk(keyValues, err)
+// 	}
+// 	var cbresults []map[string]interface{}
+// 	if err := cbresult.All(context.TODO(), &cbresults); err != nil {
+// 		result.failBulk(keyValues, err)
+// 	}
+// 	if len(mongoresults) != len(cbresults) {
+// 		result.failBulk(keyValues, errors.New("Mongo result lenght does not match columnar result length"))
+// 	}
+// 	for i := 0; i < len(mongoresults); i++ {
+// 		x := mongoresults[i]
+// 		y := cbresults[i]
+// 		res, _ := gen.Template.Compare(x, y)
+// 		if !res {
+// 			result.AddResult(x["_id"].(string), nil, errors.New("Template Compare Failed  Mongo: "+x["_id"].(string)+"   columnar:  "+y["_id"].(string)), false, -1)
+// 		} else {
+// 			result.AddResult(x["_id"].(string), nil, nil, true, keyToOffset[x["_id"].(string)])
+// 		}
+
+// 	}
+// 	return result
+
+// }

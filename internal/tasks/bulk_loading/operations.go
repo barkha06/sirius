@@ -763,3 +763,53 @@ func bulkTouchDocuments(start, end, seed int64, operationConfig *OperationConfig
 		}
 	}
 }
+
+// func ValidateDocuments(start, end, seed int64, operationConfig *OperationConfig,
+// 	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
+// 	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+
+// 	defer wg.Done()
+
+// 	skip := make(map[int64]struct{})
+// 	for offset, _ := range state.KeyStates {
+// 		skip[offset] = struct{}{}
+// 	}
+
+// 	database, dbErr := db.ConfigDatabase(databaseInfo.DBType)
+// 	if dbErr != nil {
+// 		result.FailWholeBulkOperation(start, end, dbErr, state, gen, seed)
+// 		return
+// 	}
+
+// 	var keyValues []db.KeyValue
+// 	for offset := start; offset < end; offset++ {
+// 		if _, ok := skip[offset]; ok {
+// 			continue
+// 		}
+
+// 		key := offset + seed
+// 		docId := gen.BuildKey(key)
+// 		keyValues = append(keyValues, db.KeyValue{
+// 			Key: docId,
+// 		})
+// 	}
+
+// 	initTime := time.Now().UTC().Format(time.RFC850)
+// 	bulkResult := database.Validate(columnar_config, databaseInfo.ConnStr, databaseInfo.Username, databaseInfo.Password, keyValues,
+// 		extra, gen)
+// 	flag := true
+// 	for _, x := range keyValues {
+// 		if bulkResult.GetError(x.Key) != nil {
+// 			flag = false
+// 			result.IncrementFailure(initTime, x.Key, bulkResult.GetError(x.Key), false, bulkResult.GetExtra(x.Key),
+// 				x.Offset)
+// 			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
+
+// 		} else {
+// 			state.StateChannel <- task_state.StateHelper{Status: task_state.COMPLETED, Offset: x.Offset}
+// 		}
+// 	}
+// 	if flag {
+// 		log.Println("Validation Successful for batch ", start, " to ", end)
+// 	}
+// }

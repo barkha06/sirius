@@ -136,6 +136,11 @@ func (l *loadingTask) Run() {
 			bulkTouchDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
 				l.databaseInfo, l.extra, l.wg)
 		}
+		// case tasks.ValidateOperation:
+		// 	{
+		// 		ValidateDocuments(l.start, l.end, l.seed, l.operationConfig, l.rerun, l.gen, l.state, l.result,
+		// 			l.databaseInfo, l.extra, l.wg)
+		// 	}
 
 	}
 }
