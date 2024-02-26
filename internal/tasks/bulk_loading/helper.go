@@ -490,5 +490,8 @@ func configExtraParameters(dbType string, d *db.Extras) error {
 			return err_sirius.CollectionIsMissing
 		}
 	}
+	//if dbType == db.CouchbaseColumnar {
+	//	// TODO if any parameter is required to be checked
+	//}
 	return nil
 }

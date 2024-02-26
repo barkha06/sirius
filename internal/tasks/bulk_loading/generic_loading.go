@@ -46,6 +46,8 @@ func (t *GenericLoadingTask) MetaDataIdentifier() string {
 			t.Extra.Collection}, ":")
 	} else if t.DBType == db.MongoDb {
 		return strings.Join([]string{t.IdentifierToken, t.ConnStr, t.Extra.Collection}, ":")
+	} else if t.DBType == db.CouchbaseColumnar {
+		return strings.Join([]string{t.IdentifierToken, t.ConnStr, t.Extra.Collection}, ":")
 	} else {
 		return strings.Join([]string{t.IdentifierToken, t.ConnStr}, ":")
 	}

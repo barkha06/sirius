@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	CouchbaseDb = "couchbase"
-	MongoDb     = "mongodb"
+	CouchbaseDb       = "couchbase"
+	MongoDb           = "mongodb"
+	CouchbaseColumnar = "columnar"
 )
 
 type OperationResult interface {
@@ -62,6 +63,8 @@ type Database interface {
 
 var couchbase *Couchbase
 var mongodb *Mongo
+var cbcolumnar *Columnar
+
 var lock = &sync.Mutex{}
 
 func ConfigDatabase(dbType string) (Database, error) {
@@ -84,6 +87,15 @@ func ConfigDatabase(dbType string) (Database, error) {
 			}
 		}
 		return couchbase, nil
+	case CouchbaseColumnar:
+		if cbcolumnar == nil {
+			lock.Lock()
+			defer lock.Unlock()
+			if cbcolumnar == nil {
+				cbcolumnar = NewColumnarConnectionManager()
+			}
+		}
+		return cbcolumnar, nil
 	default:
 		return nil, err_sirius.InvalidDatabase
 	}
