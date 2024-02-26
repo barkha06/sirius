@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/bgadrian/fastfaker/faker"
+
+	"github.com/bgadrian/fastfaker/faker"
 )
 
 var maritalChoices = []string{"Single", "Married", "Divorcee"}

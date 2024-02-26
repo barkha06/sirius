@@ -1,22 +1,21 @@
-package db_util
+package tasks
 
 import (
 	"log"
 	"time"
 
-	"github.com/barkha06/sirius/internal/db"
-	"github.com/barkha06/sirius/internal/err_sirius"
-	"github.com/barkha06/sirius/internal/task_result"
-	"github.com/barkha06/sirius/internal/tasks"
+	"github.com/couchbaselabs/sirius/internal/db"
+	"github.com/couchbaselabs/sirius/internal/err_sirius"
+	"github.com/couchbaselabs/sirius/internal/task_result"
 )
 
 type BucketWarmUpTask struct {
 	IdentifierToken string `json:"identifierToken" doc:"true"`
-	tasks.DatabaseInformation
+	DatabaseInformation
 	Result      *task_result.TaskResult `json:"-" doc:"false"`
 	Operation   string                  `json:"operation" doc:"false"`
 	ResultSeed  int64                   `json:"resultSeed" doc:"false"`
-	req         *tasks.Request          `json:"-" doc:"false"`
+	req         *Request                `json:"-" doc:"false"`
 	TaskPending bool                    `json:"taskPending" doc:"false"`
 }
 
@@ -46,7 +45,7 @@ func (t *BucketWarmUpTask) Do() {
 	_ = t.TearUp()
 }
 
-func (t *BucketWarmUpTask) Config(req *tasks.Request, reRun bool) (int64, error) {
+func (t *BucketWarmUpTask) Config(req *Request, reRun bool) (int64, error) {
 	t.TaskPending = false
 	t.req = req
 
@@ -55,7 +54,7 @@ func (t *BucketWarmUpTask) Config(req *tasks.Request, reRun bool) (int64, error)
 	}
 
 	t.ResultSeed = int64(time.Now().UnixNano())
-	t.Operation = tasks.BucketWarmUpOperation
+	t.Operation = BucketWarmUpOperation
 
 	return t.ResultSeed, nil
 }

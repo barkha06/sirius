@@ -1,25 +1,29 @@
-package bulk_loading
+package tasks
 
 import (
 	"sync"
 	"time"
 
-	"github.com/barkha06/sirius/internal/db"
-	"github.com/barkha06/sirius/internal/docgenerator"
-	"github.com/barkha06/sirius/internal/task_result"
-	"github.com/barkha06/sirius/internal/task_state"
-	"github.com/barkha06/sirius/internal/tasks"
 	"github.com/bgadrian/fastfaker/faker"
+	"github.com/couchbaselabs/sirius/internal/db"
+	"github.com/couchbaselabs/sirius/internal/docgenerator"
+	"github.com/couchbaselabs/sirius/internal/task_result"
+	"github.com/couchbaselabs/sirius/internal/task_state"
 )
 
 func insertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -58,18 +62,26 @@ func insertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 			state.StateChannel <- task_state.StateHelper{Status: task_state.COMPLETED, Offset: offset}
 		}
 
+		operationResult = nil
+		doc = nil
+
 	}
 
 }
 
 func upsertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	_ bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, req *tasks.Request, identifier string, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, req *Request, identifier string, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -119,16 +131,24 @@ func upsertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		} else {
 			state.StateChannel <- task_state.StateHelper{Status: task_state.COMPLETED, Offset: offset}
 		}
+
+		operationResult = nil
+		docUpdated = nil
 	}
 }
 
 func deleteDocuments(start, end, seed int64, rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -166,12 +186,17 @@ func deleteDocuments(start, end, seed int64, rerun bool, gen *docgenerator.Gener
 
 func readDocuments(start, end, seed int64, _ bool, gen *docgenerator.Generator, state *task_state.TaskState,
 	result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -202,12 +227,17 @@ func readDocuments(start, end, seed int64, _ bool, gen *docgenerator.Generator, 
 }
 
 func touchDocuments(start, end, seed int64, _ bool, gen *docgenerator.Generator, state *task_state.TaskState,
-	result *task_result.TaskResult, databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	result *task_result.TaskResult, databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -238,12 +268,17 @@ func touchDocuments(start, end, seed int64, _ bool, gen *docgenerator.Generator,
 
 func subDocInsertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -290,12 +325,17 @@ func subDocInsertDocuments(start, end, seed int64, operationConfig *OperationCon
 
 func subDocReadDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -341,12 +381,17 @@ func subDocReadDocuments(start, end, seed int64, operationConfig *OperationConfi
 
 func subDocUpsertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	_ bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, req *tasks.Request, identifier string, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, req *Request, identifier string, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -401,12 +446,17 @@ func subDocUpsertDocuments(start, end, seed int64, operationConfig *OperationCon
 
 func subDocDeleteDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -452,12 +502,17 @@ func subDocDeleteDocuments(start, end, seed int64, operationConfig *OperationCon
 
 func subDocReplaceDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	_ bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, req *tasks.Request, identifier string, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, req *Request, identifier string, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -512,12 +567,17 @@ func subDocReplaceDocuments(start, end, seed int64, operationConfig *OperationCo
 
 func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -567,13 +627,18 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 
 func bulkUpsertDocuments(start int64, end int64, seed int64, operationConfig *OperationConfig, rerun bool,
 	gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, req *tasks.Request, identifier string,
+	databaseInfo DatabaseInformation, extra db.Extras, req *Request, identifier string,
 	wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -625,12 +690,17 @@ func bulkUpsertDocuments(start int64, end int64, seed int64, operationConfig *Op
 
 func bulkDeleteDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -674,12 +744,17 @@ func bulkDeleteDocuments(start, end, seed int64, operationConfig *OperationConfi
 
 func bulkReadDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -720,12 +795,17 @@ func bulkReadDocuments(start, end, seed int64, operationConfig *OperationConfig,
 
 func bulkTouchDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
 
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	skip := make(map[int64]struct{})
-	for offset, _ := range state.KeyStates {
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
 		skip[offset] = struct{}{}
 	}
 
@@ -763,53 +843,3 @@ func bulkTouchDocuments(start, end, seed int64, operationConfig *OperationConfig
 		}
 	}
 }
-
-// func ValidateDocuments(start, end, seed int64, operationConfig *OperationConfig,
-// 	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
-// 	databaseInfo tasks.DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
-
-// 	defer wg.Done()
-
-// 	skip := make(map[int64]struct{})
-// 	for offset, _ := range state.KeyStates {
-// 		skip[offset] = struct{}{}
-// 	}
-
-// 	database, dbErr := db.ConfigDatabase(databaseInfo.DBType)
-// 	if dbErr != nil {
-// 		result.FailWholeBulkOperation(start, end, dbErr, state, gen, seed)
-// 		return
-// 	}
-
-// 	var keyValues []db.KeyValue
-// 	for offset := start; offset < end; offset++ {
-// 		if _, ok := skip[offset]; ok {
-// 			continue
-// 		}
-
-// 		key := offset + seed
-// 		docId := gen.BuildKey(key)
-// 		keyValues = append(keyValues, db.KeyValue{
-// 			Key: docId,
-// 		})
-// 	}
-
-// 	initTime := time.Now().UTC().Format(time.RFC850)
-// 	bulkResult := database.Validate(columnar_config, databaseInfo.ConnStr, databaseInfo.Username, databaseInfo.Password, keyValues,
-// 		extra, gen)
-// 	flag := true
-// 	for _, x := range keyValues {
-// 		if bulkResult.GetError(x.Key) != nil {
-// 			flag = false
-// 			result.IncrementFailure(initTime, x.Key, bulkResult.GetError(x.Key), false, bulkResult.GetExtra(x.Key),
-// 				x.Offset)
-// 			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
-
-// 		} else {
-// 			state.StateChannel <- task_state.StateHelper{Status: task_state.COMPLETED, Offset: x.Offset}
-// 		}
-// 	}
-// 	if flag {
-// 		log.Println("Validation Successful for batch ", start, " to ", end)
-// 	}
-// }

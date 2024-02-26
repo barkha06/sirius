@@ -379,7 +379,6 @@ Possible values for durability :-
 | ---- | ---- | -------- |
 | `IgnoreExceptions` | `slice` | `json:ignoreExceptions,omitempty`  |
 | `RetryExceptions` | `slice` | `json:retryExceptions,omitempty`  |
-| `RetryAttempts` | `int` | `json:retryAttempts,omitempty`  |
 #### operationConfig
 
 | Name | Type | JSON Tag |

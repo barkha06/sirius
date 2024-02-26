@@ -1,5 +1,7 @@
 github.com/bgadrian/fastfaker v2.1.0+incompatible h1:wO1y36lVtEW/jY2x+oraPzsETVIiap4nJkIYApWOWCg=
 github.com/bgadrian/fastfaker v2.1.0+incompatible/go.mod h1:aQSXCiKk6GFZoS6DBRP8w2L81E6kIm2JgjpfhMkl64M=
+github.com/bgadrian/fastfaker v2.1.0+incompatible h1:wO1y36lVtEW/jY2x+oraPzsETVIiap4nJkIYApWOWCg=
+github.com/bgadrian/fastfaker v2.1.0+incompatible/go.mod h1:aQSXCiKk6GFZoS6DBRP8w2L81E6kIm2JgjpfhMkl64M=
 github.com/couchbase/gocb/v2 v2.6.1 h1:2/ACkqvy/PPp9hd/B9f8N4sUGVauqFOuVWoOgpdYA7U=
 github.com/couchbase/gocb/v2 v2.6.1/go.mod h1:qFMQJUna2RQaGyYS87J0jxOBhprhfLCUz64apvI9FPc=
 github.com/couchbase/gocbcore/v10 v10.2.1 h1:C5zXZUWdKrE2hncDBdDLRoKXNaVc7BYrn6JOgNZAODA=
@@ -9,6 +11,8 @@ github.com/couchbaselabs/gocaves/client v0.0.0-20221010100422-25779db8de05/go.mo
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/engoengine/math v1.0.4 h1:B21m/8HMenXvc9/WL3U9bEndIR6QM4Dw9cT/noQjy7E=
+github.com/engoengine/math v1.0.4/go.mod h1:5Q4qHspv3qnO83hv09Z2dNHaVqo+7YI5WWDIEXY/HE4=
 github.com/engoengine/math v1.0.4 h1:B21m/8HMenXvc9/WL3U9bEndIR6QM4Dw9cT/noQjy7E=
 github.com/engoengine/math v1.0.4/go.mod h1:5Q4qHspv3qnO83hv09Z2dNHaVqo+7YI5WWDIEXY/HE4=
 github.com/go-chi/chi/v5 v5.0.8 h1:lD+NLqFcAi1ovnVZpsnObHGW4xb4J8lNmoYVfECH1Y0=
