@@ -97,6 +97,14 @@ func TestMongoDB(t *testing.T) {
 		}
 	}
 
+	// TODO Upserting Documents into MongoDB
+
+	// TODO Bulk Upserting Documents into MongoDB
+
+	// TODO Reading Documents into MongoDB
+
+	// TODO Bulk Reading Documents into MongoDB
+
 	// Deleting Documents from MongoDB
 	for i := int64(40); i < int64(50); i++ {
 		key := i + cm1.Seed

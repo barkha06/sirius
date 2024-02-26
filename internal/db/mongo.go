@@ -259,13 +259,15 @@ func (m Mongo) Update(connStr, username, password string, keyValue KeyValue, ext
 		return newMongoOperationResult(keyValue.Key, keyValue.Doc, errors.New("collection is missing"), false,
 			keyValue.Offset)
 	}
+
 	mongoDatabase := mongoClient.Database(extra.Database)
 	mongoCollection := mongoDatabase.Collection(extra.Collection)
+
 	filter := bson.M{"_id": keyValue.Key}
 	update := bson.M{"$set": keyValue.Doc}
-	log.Println(filter, update)
-	result, err2 := mongoCollection.UpdateOne(context.TODO(), filter, update, options.Update().SetUpsert(true))
+	//log.Println(filter, update)
 
+	result, err2 := mongoCollection.UpdateOne(context.TODO(), filter, update, options.Update().SetUpsert(true))
 	if err2 != nil {
 		return newMongoOperationResult(keyValue.Key, keyValue.Doc, err2, false, keyValue.Offset)
 	}
@@ -274,9 +276,8 @@ func (m Mongo) Update(connStr, username, password string, keyValue KeyValue, ext
 			fmt.Errorf("result is nil even after successful UPDATE operation %s ", connStr), false,
 			keyValue.Offset)
 	}
+
 	return newMongoOperationResult(keyValue.Key, keyValue.Doc, nil, true, keyValue.Offset)
-	//TODO implement me
-	// panic("implement me")
 }
 
 func (m Mongo) Read(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
@@ -665,8 +666,7 @@ func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyVal
 		return result
 	}
 	mongoClient := m.connectionManager.Clusters[connStr].MongoClusterClient
-	// opts1 := options.Client().ApplyURI(connStr)
-	// mongoClient, err := mongo.Connect(context.TODO(), opts1)
+
 	if err := validateStrings(extra.Database); err != nil {
 		result.failBulk(keyValues, errors.New("database name is missing"))
 		return result
@@ -714,7 +714,6 @@ func (m Mongo) UpdateBulk(connStr, username, password string, keyValues []KeyVal
 			// log.Println("docid: value:   ", docid, value)
 		}
 	}
-	// mongoClient.Disconnect(context.TODO())
 	return result
 }
 
