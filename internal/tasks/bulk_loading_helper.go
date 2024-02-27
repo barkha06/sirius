@@ -1,8 +1,10 @@
-package bulk_loading
+package tasks
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
+	"time"
 
 	"github.com/barkha06/sirius/internal/cb_sdk"
 	"github.com/barkha06/sirius/internal/db"
@@ -10,10 +12,14 @@ import (
 	"github.com/barkha06/sirius/internal/err_sirius"
 	"github.com/barkha06/sirius/internal/task_result"
 	"github.com/barkha06/sirius/internal/task_state"
-	"github.com/barkha06/sirius/internal/tasks"
 	"github.com/bgadrian/fastfaker/faker"
-	"golang.org/x/exp/slices"
 )
+
+// Exceptions will have list of errors to be ignored or to be retried
+type Exceptions struct {
+	IgnoreExceptions []string `json:"ignoreExceptions,omitempty" doc:"true"`
+	RetryExceptions  []string `json:"retryExceptions,omitempty" doc:"true"`
+}
 
 // OperationConfig contains all the configuration for document operation.
 type OperationConfig struct {
@@ -211,7 +217,7 @@ func ConfigureOperationConfig(o *OperationConfig) error {
 //	}
 //
 // retracePreviousMutations returns an updated document after mutating the original documents.
-func retracePreviousMutations(r *tasks.Request, collectionIdentifier string, offset int64, doc interface{},
+func retracePreviousMutations(r *Request, collectionIdentifier string, offset int64, doc interface{},
 	gen *docgenerator.Generator, fake *faker.Faker, resultSeed int64) (interface{}, error) {
 	if r == nil {
 		return doc, err_sirius.RequestIsNil
@@ -220,7 +226,7 @@ func retracePreviousMutations(r *tasks.Request, collectionIdentifier string, off
 	r.Lock()
 	for i := range r.Tasks {
 		td := r.Tasks[i]
-		if td.Operation == tasks.UpsertOperation || td.Operation == tasks.BulkUpsertOperation {
+		if td.Operation == UpsertOperation || td.Operation == BulkUpsertOperation {
 			if tempX, ok := td.Task.(BulkTask); ok {
 				u, ok := tempX.(*GenericLoadingTask)
 				if ok {
@@ -232,11 +238,10 @@ func retracePreviousMutations(r *tasks.Request, collectionIdentifier string, off
 						if u.State == nil {
 							u.State = task_state.ConfigTaskState(resultSeed)
 						}
-						if v, ok1 := u.State.KeyStates[offset]; ok1 {
-							if v == 1 {
-								doc, _ = gen.Template.UpdateDocument(u.OperationConfig.FieldsToChange, doc,
-									u.OperationConfig.DocSize, fake)
-							}
+
+						if u.State.CheckOffsetInComplete(offset) {
+							doc, _ = gen.Template.UpdateDocument(u.OperationConfig.FieldsToChange, doc,
+								u.OperationConfig.DocSize, fake)
 						}
 					}
 
@@ -248,7 +253,7 @@ func retracePreviousMutations(r *tasks.Request, collectionIdentifier string, off
 }
 
 // retracePreviousSubDocMutations retraces mutation in sub documents.
-func retracePreviousSubDocMutations(r *tasks.Request, collectionIdentifier string, offset int64,
+func retracePreviousSubDocMutations(r *Request, collectionIdentifier string, offset int64,
 	gen *docgenerator.Generator, fake *faker.Faker, resultSeed int64, subDocumentMap map[string]any) (map[string]any,
 	error) {
 	if r == nil {
@@ -259,7 +264,7 @@ func retracePreviousSubDocMutations(r *tasks.Request, collectionIdentifier strin
 	var result map[string]any = subDocumentMap
 	for i := range r.Tasks {
 		td := r.Tasks[i]
-		if td.Operation == tasks.SubDocUpsertOperation {
+		if td.Operation == SubDocUpsertOperation {
 			if task, ok := td.Task.(BulkTask); ok {
 				u, ok1 := task.(*GenericLoadingTask)
 				if ok1 {
@@ -272,17 +277,15 @@ func retracePreviousSubDocMutations(r *tasks.Request, collectionIdentifier strin
 							u.State = task_state.ConfigTaskState(resultSeed)
 						}
 
-						if v, ok2 := u.State.KeyStates[offset]; ok2 {
-							if v == 1 {
-								result = gen.Template.GenerateSubPathAndValue(fake, u.OperationConfig.DocSize)
-							}
+						if u.State.CheckOffsetInComplete(offset) {
+							result = gen.Template.GenerateSubPathAndValue(fake, u.OperationConfig.DocSize)
 						}
-
 					}
 				}
 			}
 		}
 	}
+
 	return result, nil
 }
 
@@ -367,19 +370,6 @@ func retracePreviousSubDocMutations(r *tasks.Request, collectionIdentifier strin
 //
 //}
 
-type RetriedResult struct {
-	Status   bool           `json:"status" doc:"true"`
-	Extra    map[string]any `json:"extra" doc:"true"`
-	InitTime string         `json:"initTime" doc:"true"`
-	AckTime  string         `json:"ackTime" doc:"true"`
-}
-
-type Exceptions struct {
-	IgnoreExceptions []string `json:"ignoreExceptions,omitempty" doc:"true"`
-	RetryExceptions  []string `json:"retryExceptions,omitempty" doc:"true"`
-	RetryAttempts    int      `json:"retryAttempts,omitempty" doc:"true"`
-}
-
 func GetExceptions(result *task_result.TaskResult, RetryExceptions []string) []string {
 	var exceptionList []string
 	if len(RetryExceptions) == 0 {
@@ -392,85 +382,18 @@ func GetExceptions(result *task_result.TaskResult, RetryExceptions []string) []s
 	return exceptionList
 }
 
-// shiftErrToCompletedOnRetrying will bring the offset which successfully completed their respective operation on
-// retrying
-func shiftErrToCompletedOnRetrying(exception string, result *task_result.TaskResult,
-	errorOffsetListMap []map[int64]RetriedResult, errorOffsetMaps, completedOffsetMaps map[int64]struct{}) {
-	if _, ok := result.BulkError[exception]; ok {
-		for _, x := range errorOffsetListMap {
-			for offset, retryResult := range x {
-				if retryResult.Status == true {
-					delete(errorOffsetMaps, offset)
-					completedOffsetMaps[offset] = struct{}{}
-					for index := range result.BulkError[exception] {
-						if result.BulkError[exception][index].Offset == offset {
-
-							offsetRetriedIndex := slices.IndexFunc(result.RetriedError[exception],
-								func(document task_result.FailedDocument) bool {
-									return document.Offset == offset
-								})
-
-							if offsetRetriedIndex == -1 {
-								result.RetriedError[exception] = append(result.RetriedError[exception], result.BulkError[exception][index])
-
-								result.RetriedError[exception][len(result.RetriedError[exception])-1].
-									Status = retryResult.Status
-
-								result.RetriedError[exception][len(result.RetriedError[exception])-1].
-									Extra = retryResult.Extra
-
-								result.RetriedError[exception][len(result.RetriedError[exception])-1].
-									SDKTiming.SendTime = retryResult.InitTime
-
-								result.RetriedError[exception][len(result.RetriedError[exception])-1].
-									SDKTiming.AckTime = retryResult.AckTime
-
-							} else {
-								result.RetriedError[exception][offsetRetriedIndex].Status = retryResult.Status
-								result.RetriedError[exception][offsetRetriedIndex].Extra = retryResult.Extra
-								result.RetriedError[exception][offsetRetriedIndex].SDKTiming.SendTime =
-									retryResult.InitTime
-								result.RetriedError[exception][offsetRetriedIndex].SDKTiming.AckTime =
-									retryResult.AckTime
-							}
-
-							result.BulkError[exception][index] = result.BulkError[exception][len(
-								result.BulkError[exception])-1]
-
-							result.BulkError[exception] = result.BulkError[exception][:len(
-								result.BulkError[exception])-1]
-
-							break
-						}
-					}
-				} else {
-					for index := range result.BulkError[exception] {
-						if result.BulkError[exception][index].Offset == offset {
-							result.BulkError[exception][index].SDKTiming.SendTime = retryResult.InitTime
-							result.BulkError[exception][index].SDKTiming.AckTime = retryResult.AckTime
-							result.RetriedError[exception] = append(result.RetriedError[exception],
-								result.BulkError[exception][index])
-							break
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
 // shiftErrToCompletedOnIgnore will ignore retrying operation for offset lying in ignore exception category
-func shiftErrToCompletedOnIgnore(ignoreExceptions []string, result *task_result.TaskResult, errorOffsetMaps,
-	completedOffsetMaps map[int64]struct{}) {
+func shiftErrToCompletedOnIgnore(ignoreExceptions []string, result *task_result.TaskResult, state *task_state.TaskState) {
 	for _, exception := range ignoreExceptions {
 		for _, failedDocs := range result.BulkError[exception] {
-			if _, ok := errorOffsetMaps[failedDocs.Offset]; ok {
-				delete(errorOffsetMaps, failedDocs.Offset)
-				completedOffsetMaps[failedDocs.Offset] = struct{}{}
-			}
+			state.AddOffsetToCompleteSet(failedDocs.Offset)
+		}
+		for _, failedDocs := range result.BulkError[exception] {
+			state.RemoveOffsetFromErrSet(failedDocs.Offset)
 		}
 		delete(result.BulkError, exception)
 	}
+
 }
 
 func configExtraParameters(dbType string, d *db.Extras) error {
@@ -490,8 +413,21 @@ func configExtraParameters(dbType string, d *db.Extras) error {
 			return err_sirius.CollectionIsMissing
 		}
 	}
-	//if dbType == db.CouchbaseColumnar {
-	//	// TODO if any parameter is required to be checked
-	//}
 	return nil
+}
+
+// loadBatch will enqueue the batch to thread pool. if the queue is full,
+// it will wait for sometime any thread to pick it up.
+func loadBatch(task *GenericLoadingTask, t *loadingTask, batchStart int64, batchEnd int64) {
+	retryBatchCounter := 10
+	for ; retryBatchCounter > 0; retryBatchCounter-- {
+		if err := Pool.Execute(t); err == nil {
+			break
+		}
+		time.Sleep(1 * time.Minute)
+	}
+	if retryBatchCounter == 0 {
+		task.Result.FailWholeBulkOperation(batchStart, batchEnd, errors.New("internal error, "+
+			"sirius is overloaded"), task.State, task.gen, task.MetaData.Seed)
+	}
 }

@@ -71,13 +71,14 @@ func TestCouchbase(t *testing.T) {
 
 	}
 	//update
+	//update
 	for i := int64(0); i < int64(10); i++ {
 		key := i + cm1.Seed
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
 		doc := g.Template.GenerateDocument(fake, docId, 10)
-		//log.Println(docId, Doc)
+
 		x := db.Update(connStr, username, password, KeyValue{
 			Key:    docId,
 			Doc:    doc,
@@ -138,6 +139,7 @@ func TestCouchbase(t *testing.T) {
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
+
 		var keyValues []KeyValue
 		offsetCount := int64(0)
 		for path, _ := range gen.Template.GenerateSubPathAndValue(fake, 10) {
@@ -243,6 +245,7 @@ func TestCouchbase_CreateBulk(t *testing.T) {
 				fake := faker.NewFastFaker()
 				fake.Seed(key)
 				doc := gen.Template.GenerateDocument(fake, docId, 10)
+
 				keyValue = append(keyValue, KeyValue{
 					Key:    docId,
 					Doc:    doc,
