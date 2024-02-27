@@ -4,11 +4,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/barkha06/sirius/internal/db"
+	"github.com/barkha06/sirius/internal/docgenerator"
+	"github.com/barkha06/sirius/internal/task_result"
+	"github.com/barkha06/sirius/internal/task_state"
 	"github.com/bgadrian/fastfaker/faker"
-	"github.com/couchbaselabs/sirius/internal/db"
-	"github.com/couchbaselabs/sirius/internal/docgenerator"
-	"github.com/couchbaselabs/sirius/internal/task_result"
-	"github.com/couchbaselabs/sirius/internal/task_state"
 )
 
 func insertDocuments(start, end, seed int64, operationConfig *OperationConfig,

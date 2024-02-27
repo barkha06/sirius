@@ -4,9 +4,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/couchbaselabs/sirius/internal/db"
-	"github.com/couchbaselabs/sirius/internal/err_sirius"
-	"github.com/couchbaselabs/sirius/internal/task_result"
+	"github.com/barkha06/sirius/internal/db"
+	"github.com/barkha06/sirius/internal/err_sirius"
+	"github.com/barkha06/sirius/internal/task_result"
 )
 
 type BucketWarmUpTask struct {

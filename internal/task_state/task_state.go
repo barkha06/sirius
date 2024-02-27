@@ -52,7 +52,6 @@ func ConfigTaskState(resultSeed int64) *TaskState {
 	} else {
 		ts = &TaskState{
 			ResultSeed:   resultSeed,
-			KeyStates:    make(map[int64]int),
 			StateChannel: make(chan StateHelper, StateChannelLimit),
 			ctx:          ctx,
 			cancel:       cancel,
@@ -220,7 +219,7 @@ func (t *TaskState) StoreState() {
 func (t *TaskState) StoreCompleted(completed []int64) {
 	t.lock.Lock()
 	for _, offset := range completed {
-		t.KeyStates[offset] = COMPLETED
+		t.AddOffsetToCompleteSet(offset)
 	}
 	t.lock.Unlock()
 }
@@ -229,7 +228,7 @@ func (t *TaskState) StoreCompleted(completed []int64) {
 func (t *TaskState) StoreError(err []int64) {
 	t.lock.Lock()
 	for _, offset := range err {
-		t.KeyStates[offset] = ERR
+		t.AddOffsetToErrSet(offset)
 	}
 	t.lock.Unlock()
 }
@@ -242,6 +241,16 @@ func (t *TaskState) StopStoringState() {
 	}
 	t.cancel()
 	time.Sleep(1 * time.Second)
+}
+
+// ClearCompletedKeyStates clears the Completed key state
+func (t *TaskState) ClearCompletedKeyStates() {
+	t.KeyStates.Completed = t.KeyStates.Completed[:0]
+}
+
+// ClearErrorKeyStates clears the Error key state
+func (t *TaskState) ClearErrorKeyStates() {
+	t.KeyStates.Err = t.KeyStates.Err[:0]
 }
 
 func (t *TaskState) SaveTaskSateOnDisk() error {

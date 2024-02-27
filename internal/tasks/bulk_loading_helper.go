@@ -6,13 +6,13 @@ import (
 	"log"
 	"time"
 
+	"github.com/barkha06/sirius/internal/cb_sdk"
+	"github.com/barkha06/sirius/internal/db"
+	"github.com/barkha06/sirius/internal/docgenerator"
+	"github.com/barkha06/sirius/internal/err_sirius"
+	"github.com/barkha06/sirius/internal/task_result"
+	"github.com/barkha06/sirius/internal/task_state"
 	"github.com/bgadrian/fastfaker/faker"
-	"github.com/couchbaselabs/sirius/internal/cb_sdk"
-	"github.com/couchbaselabs/sirius/internal/db"
-	"github.com/couchbaselabs/sirius/internal/docgenerator"
-	"github.com/couchbaselabs/sirius/internal/err_sirius"
-	"github.com/couchbaselabs/sirius/internal/task_result"
-	"github.com/couchbaselabs/sirius/internal/task_state"
 )
 
 // Exceptions will have list of errors to be ignored or to be retried

@@ -312,6 +312,7 @@ func (m Mongo) Read(connStr, username, password, key string, offset int64, extra
 			fmt.Errorf("result is nil even after successful READ operation %s ", connStr), false,
 			offset)
 	}
+	log.Println(result)
 	return newMongoOperationResult(key, result, nil, true, offset)
 
 }
@@ -887,12 +888,11 @@ func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue
 	var results []map[string]interface{}
 	if err := cursor.All(context.TODO(), &results); err != nil {
 		result.failBulk(keyValues, err)
-	} else if int64(len(keyValues)) != int64(len(results)) {
-		result.failBulk(keyValues, errors.New("MongoDB ReadBulk(): Read Count does not match batch size"))
-		return result
 	}
+
 	for _, resultdoc := range results {
-		result.AddResult(resultdoc["_id"].(string), nil, nil, true, keyToOffset[resultdoc["_id"].(string)])
+		log.Println(resultdoc, resultdoc["_id"].(string))
+		result.AddResult(resultdoc["_id"].(string), resultdoc, nil, true, keyToOffset[resultdoc["_id"].(string)])
 	}
 	return result
 }

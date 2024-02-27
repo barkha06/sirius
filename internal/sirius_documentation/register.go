@@ -1,9 +1,9 @@
 package sirius_documentation
 
 import (
-	"github.com/couchbaselabs/sirius/internal/task_result"
-	"github.com/couchbaselabs/sirius/internal/tasks"
-	"github.com/couchbaselabs/sirius/internal/tasks/util_sirius"
+	"github.com/barkha06/sirius/internal/task_result"
+	"github.com/barkha06/sirius/internal/tasks"
+	"github.com/barkha06/sirius/internal/tasks/util_sirius"
 )
 
 type TaskRegister struct {

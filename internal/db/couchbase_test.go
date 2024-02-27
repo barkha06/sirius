@@ -56,10 +56,6 @@ func TestCouchbase(t *testing.T) {
 		fake.Seed(key)
 		doc := g.Template.GenerateDocument(fake, docId, 10)
 		log.Println(docId, doc)
-		fake := faker.NewFastFaker()
-		fake.Seed(key)
-		doc := g.Template.GenerateDocument(fake, docId, 10)
-		log.Println(docId, doc)
 		x := db.Update(connStr, username, password, KeyValue{
 			Key:    docId,
 			Doc:    doc,
@@ -82,10 +78,7 @@ func TestCouchbase(t *testing.T) {
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
 		doc := g.Template.GenerateDocument(fake, docId, 10)
-		fake := faker.NewFastFaker()
-		fake.Seed(key)
-		doc := g.Template.GenerateDocument(fake, docId, 10)
-		//log.Println(docId, Doc)
+
 		x := db.Update(connStr, username, password, KeyValue{
 			Key:    docId,
 			Doc:    doc,
@@ -99,7 +92,6 @@ func TestCouchbase(t *testing.T) {
 			log.Println("Update", x.Key(), " ", x.Value())
 		}
 	}
-
 
 	// Read
 	for i := int64(0); i < int64(10); i++ {
@@ -120,14 +112,10 @@ func TestCouchbase(t *testing.T) {
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
-		fake := faker.NewFastFaker()
-		fake.Seed(key)
 		var keyValues []KeyValue
 		offsetCount := int64(0)
 		for subPath, value := range gen.Template.GenerateSubPathAndValue(fake, 10) {
-		for subPath, value := range gen.Template.GenerateSubPathAndValue(fake, 10) {
 			keyValues = append(keyValues, KeyValue{
-				Key:    subPath,
 				Key:    subPath,
 				Doc:    value,
 				Offset: offsetCount,
@@ -151,11 +139,9 @@ func TestCouchbase(t *testing.T) {
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
-		fake := faker.NewFastFaker()
-		fake.Seed(key)
+
 		var keyValues []KeyValue
 		offsetCount := int64(0)
-		for path, _ := range gen.Template.GenerateSubPathAndValue(fake, 10) {
 		for path, _ := range gen.Template.GenerateSubPathAndValue(fake, 10) {
 			keyValues = append(keyValues, KeyValue{
 				Key:    path,
@@ -259,9 +245,7 @@ func TestCouchbase_CreateBulk(t *testing.T) {
 				fake := faker.NewFastFaker()
 				fake.Seed(key)
 				doc := gen.Template.GenerateDocument(fake, docId, 10)
-				fake := faker.NewFastFaker()
-				fake.Seed(key)
-				doc := gen.Template.GenerateDocument(fake, docId, 10)
+
 				keyValue = append(keyValue, KeyValue{
 					Key:    docId,
 					Doc:    doc,
