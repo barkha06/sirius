@@ -1,10 +1,8 @@
 package db
 
 import (
-	"fmt"
 	"github.com/barkha06/sirius/internal/sdk_columnar"
 	"log"
-	"time"
 )
 
 type columnarOperationResult struct {
@@ -65,6 +63,7 @@ func (c *Columnar) Connect(connStr, username, password string, extra Extras) err
 	clusterConfig := &sdk_columnar.ClusterConfig{}
 
 	if _, err := c.connectionManager.GetCluster(connStr, username, password, clusterConfig); err != nil {
+		log.Println("In Columnar Connect(), error in GetCluster()")
 		return err
 	}
 
@@ -75,6 +74,7 @@ func (c *Columnar) Warmup(connStr, username, password string, extra Extras) erro
 	if err := validateStrings(connStr, username, password); err != nil {
 		return err
 	}
+	log.Println("In Columnar Warmup()")
 	return nil
 }
 
@@ -93,39 +93,35 @@ func (c *Columnar) Update(connStr, username, password string, keyValue KeyValue,
 }
 
 func (c *Columnar) Read(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
-	// Reading using Analytics Query
 
 	cbCluster := c.connectionManager.Clusters[connStr].Cluster
-	log.Println("Cluster:", cbCluster)
+	//log.Println("Cluster:", cbCluster)
 
-	b := cbCluster.Bucket("Default")
-	err := b.WaitUntilReady(time.Second, nil)
-	if err != nil {
-		log.Println("In Columnar Read(), unable to connect to Bucket")
-		log.Println(err)
-	}
-
-	results, err1 := cbCluster.AnalyticsQuery("SELECT 1;", nil)
-	if err1 != nil {
+	results, errAnalyticsQuery := cbCluster.AnalyticsQuery(extra.Query, nil)
+	if errAnalyticsQuery != nil {
 		log.Println("In Columnar Read(), unable to execute query")
-		log.Println(err1)
+		log.Println(errAnalyticsQuery)
+		return newColumnarOperationResult(key, nil, nil, false, offset)
 	}
 
-	var greeting interface{}
-
-	fmt.Println("Read Query Result")
-	for results.Next() {
-		err := results.Row(&greeting)
-		if err != nil {
-			panic(err)
+	log.Println("Analytics Query Result:")
+	if results != nil {
+		var resultDisplay interface{}
+		for results.Next() {
+			err := results.Row(&resultDisplay)
+			if err != nil {
+				log.Println("In Columnar Read(), unable to decode result")
+				log.Println(err)
+				return newColumnarOperationResult(key, nil, nil, false, offset)
+			}
+			log.Println(resultDisplay)
 		}
-		fmt.Println(greeting)
 	}
-
-	// always check for errors after iterating.
-	err = results.Err()
-	if err != nil {
-		panic(err)
+	errIterCursor := results.Err()
+	if errIterCursor != nil {
+		log.Println("In Columnar Read(), error while iterating cursor")
+		log.Println(errIterCursor)
+		return newColumnarOperationResult(key, nil, nil, false, offset)
 	}
 	return newColumnarOperationResult(key, nil, nil, true, offset)
 }
