@@ -33,7 +33,8 @@ type Extras struct {
 	PreserveExpiry      bool    `json:"preserveExpiry,omitempty" doc:"true"`
 	CreatePath          bool    `json:"createPath,omitempty" doc:"true"`
 	SDKBatchSize        int     `json:"SDKBatchSize,omitempty" doc:"true"`
-	Database            string  `json:"database,omitempty" doc:"true" `
+	Database            string  `json:"database,omitempty" doc:"true"`
+	Query               string  `json:"query,omitempty" doc:"true"`
 }
 
 func validateStrings(values ...string) error {

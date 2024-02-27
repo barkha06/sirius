@@ -320,6 +320,7 @@ Description : Warming up a connection to database.
 | `CreatePath` | `bool` | `json:createPath,omitempty`  |
 | `SDKBatchSize` | `int` | `json:SDKBatchSize,omitempty`  |
 | `Database` | `string` | `json:database,omitempty`  |
+| `Query` | `string` | `json:query,omitempty`  |
 
 ---
 Possible values for durability :-
