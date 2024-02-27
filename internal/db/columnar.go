@@ -2,6 +2,7 @@ package db
 
 import (
 	"github.com/barkha06/sirius/internal/sdk_columnar"
+	"github.com/couchbase/gocb/v2"
 	"log"
 )
 
@@ -71,10 +72,41 @@ func (c *Columnar) Connect(connStr, username, password string, extra Extras) err
 }
 
 func (c *Columnar) Warmup(connStr, username, password string, extra Extras) error {
+
 	if err := validateStrings(connStr, username, password); err != nil {
+		log.Println("In Columnar Warmup(), error:", err)
 		return err
 	}
-	log.Println("In Columnar Warmup()")
+
+	// Pinging the Cluster
+	cbCluster := c.connectionManager.Clusters[connStr].Cluster
+	pingRes, errPing := cbCluster.Ping(&gocb.PingOptions{
+		ServiceTypes: []gocb.ServiceType{gocb.ServiceTypeAnalytics},
+	})
+	if errPing != nil {
+		log.Print("In Columnar Warmup(), error while pinging:", errPing)
+		return errPing
+	}
+	
+	for service, pingReports := range pingRes.Services {
+		if service != gocb.ServiceTypeAnalytics {
+			log.Println("We got a service type that we didn't ask for!")
+		}
+		for _, pingReport := range pingReports {
+			if pingReport.State != gocb.PingStateOk {
+				log.Printf(
+					"Node %s at remote %s is not OK, error: %s, latency: %s\n",
+					pingReport.ID, pingReport.Remote, pingReport.Error, pingReport.Latency.String(),
+				)
+			} else {
+				log.Printf(
+					"Node %s at remote %s is OK, latency: %s\n",
+					pingReport.ID, pingReport.Remote, pingReport.Latency.String(),
+				)
+			}
+		}
+	}
+
 	return nil
 }
 
