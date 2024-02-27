@@ -1,8 +1,9 @@
 package db
 
 import (
-	"github.com/barkha06/sirius/internal/sdk_columnar"
 	"log"
+
+	"github.com/barkha06/sirius/internal/sdk_columnar"
 )
 
 type columnarOperationResult struct {

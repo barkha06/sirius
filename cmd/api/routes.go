@@ -46,6 +46,7 @@ func (app *Config) routes() http.Handler {
 	mux.Post("/bulk-touch", app.bulkTouchTask)
 	mux.Post("/read", app.readTask)
 	mux.Post("/bulk-read", app.bulkReadTask)
+	mux.Post("/validate", app.validateTask)
 
 	mux.Post("/sub-doc-insert", app.SubDocInsertTask)
 	mux.Post("/sub-doc-upsert", app.SubDocUpsertTask)

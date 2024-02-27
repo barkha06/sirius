@@ -35,6 +35,9 @@ type Extras struct {
 	SDKBatchSize        int     `json:"SDKBatchSize,omitempty" doc:"true"`
 	Database            string  `json:"database,omitempty" doc:"true"`
 	Query               string  `json:"query,omitempty" doc:"true"`
+	ConnStr             string  `json:"connstr,omitempty" doc:"true"`
+	Username            string  `json:"username,omitempty" doc:"true"`
+	Password            string  `json:"password,omitempty" doc:"true"`
 }
 
 func validateStrings(values ...string) error {

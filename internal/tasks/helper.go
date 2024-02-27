@@ -19,6 +19,7 @@ const (
 	TouchOperation               string = "touch"
 	BulkTouchOperation           string = "bulkTouch"
 	ValidateOperation            string = "validate"
+	ValidateDocOperation         string = "validateDoc"
 	SingleInsertOperation        string = "singleInsert"
 	SingleDeleteOperation        string = "singleDelete"
 	SingleUpsertOperation        string = "singleUpsert"

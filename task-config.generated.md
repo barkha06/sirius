@@ -321,6 +321,9 @@ Description : Warming up a connection to database.
 | `SDKBatchSize` | `int` | `json:SDKBatchSize,omitempty`  |
 | `Database` | `string` | `json:database,omitempty`  |
 | `Query` | `string` | `json:query,omitempty`  |
+| `ConnStr` | `string` | `json:connstr,omitempty`  |
+| `Username` | `string` | `json:username,omitempty`  |
+| `Password` | `string` | `json:password,omitempty`  |
 
 ---
 Possible values for durability :-

@@ -1,14 +1,18 @@
 package tasks
 
 import (
+	"errors"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/barkha06/sirius/internal/db"
 	"github.com/barkha06/sirius/internal/docgenerator"
+	"github.com/barkha06/sirius/internal/sdk_columnar"
 	"github.com/barkha06/sirius/internal/task_result"
 	"github.com/barkha06/sirius/internal/task_state"
 	"github.com/bgadrian/fastfaker/faker"
+	"github.com/couchbase/gocb/v2"
 )
 
 func insertDocuments(start, end, seed int64, operationConfig *OperationConfig,
@@ -842,4 +846,94 @@ func bulkTouchDocuments(start, end, seed int64, operationConfig *OperationConfig
 			state.StateChannel <- task_state.StateHelper{Status: task_state.COMPLETED, Offset: x.Offset}
 		}
 	}
+}
+
+func validateDocuments(start, end, seed int64, operationConfig *OperationConfig,
+	rerun bool, gen *docgenerator.Generator, state *task_state.TaskState, result *task_result.TaskResult,
+	databaseInfo DatabaseInformation, extra db.Extras, wg *sync.WaitGroup) {
+
+	defer wg.Done()
+
+	skip := make(map[int64]struct{})
+	for _, offset := range state.KeyStates.Completed {
+		skip[offset] = struct{}{}
+	}
+	for _, offset := range state.KeyStates.Err {
+		skip[offset] = struct{}{}
+	}
+
+	database, dbErr := db.ConfigDatabase(databaseInfo.DBType)
+	if dbErr != nil {
+		result.FailWholeBulkOperation(start, end, dbErr, state, gen, seed)
+		return
+	}
+
+	var keyValues []db.KeyValue
+	var docIDs []string
+	for offset := start; offset < end; offset++ {
+		if _, ok := skip[offset]; ok {
+			continue
+		}
+
+		key := offset + seed
+		docId := gen.BuildKey(key)
+		docIDs = append(docIDs, docId)
+		keyValues = append(keyValues, db.KeyValue{
+			Key:    docId,
+			Offset: offset,
+		})
+	}
+
+	cConfig := &sdk_columnar.ClusterConfig{}
+	cmObj := sdk_columnar.ConfigConnectionManager()
+
+	cbCluster, err := cmObj.GetCluster(extra.ConnStr, extra.Username, extra.Password, cConfig)
+	if err != nil {
+		result.FailWholeBulkOperation(start, end, err, state, gen, seed)
+		return
+	}
+	query := "SELECT * from `mongo`.`scope`.`TestCollectionSirius2s` where id IN $ids order by id asc;"
+	params := map[string]interface{}{
+		"ids": docIDs,
+	}
+	initTime := time.Now().UTC().Format(time.RFC850)
+	cbresult, errAnalyticsQuery := cbCluster.AnalyticsQuery(query, &gocb.AnalyticsOptions{NamedParameters: params})
+	if errAnalyticsQuery != nil {
+		log.Println("In Columnar Read(), unable to execute query")
+		log.Println(errAnalyticsQuery)
+		result.FailWholeBulkOperation(start, end, errAnalyticsQuery, state, gen, seed)
+	}
+	bulkResult := database.ReadBulk(databaseInfo.ConnStr, databaseInfo.Username, databaseInfo.Password, keyValues, extra)
+	for _, x := range keyValues {
+		if bulkResult.GetError(x.Key) != nil {
+
+			result.IncrementFailure(initTime, x.Key, bulkResult.GetError(x.Key), false, bulkResult.GetExtra(x.Key),
+				x.Offset)
+			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
+
+		} else {
+			var resultDisplay map[string]interface{}
+			if cbresult != nil && cbresult.Next() {
+				err := cbresult.Row(&resultDisplay)
+				if err != nil {
+					log.Println("In Columnar Read(), unable to decode result")
+					log.Println(err)
+
+					result.IncrementFailure(initTime, x.Key, err, false, bulkResult.GetExtra(x.Key),
+						x.Offset)
+					state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
+				} else {
+					res, _ := gen.Template.Compare(bulkResult.Value(x.Key), resultDisplay)
+					if !res {
+						result.IncrementFailure(initTime, x.Key, errors.New("Template Compare Failed  Mongo: "+x.Key+"   columnar:  "+resultDisplay["_id"].(string)), false, bulkResult.GetExtra(x.Key),
+							x.Offset)
+						state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
+					} else {
+						state.StateChannel <- task_state.StateHelper{Status: task_state.COMPLETED, Offset: x.Offset}
+					}
+				}
+			}
+		}
+	}
+
 }
