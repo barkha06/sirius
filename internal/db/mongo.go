@@ -890,7 +890,6 @@ func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue
 		result.failBulk(keyValues, err)
 	}
 	for _, resultdoc := range results {
-		log.Println(resultdoc, resultdoc["_id"].(string))
 		result.AddResult(resultdoc["_id"].(string), resultdoc, nil, true, keyToOffset[resultdoc["_id"].(string)])
 	}
 	return result

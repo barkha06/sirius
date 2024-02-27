@@ -8,7 +8,6 @@ import (
 
 	"github.com/barkha06/sirius/internal/db"
 	"github.com/barkha06/sirius/internal/docgenerator"
-	"github.com/barkha06/sirius/internal/sdk_columnar"
 	"github.com/barkha06/sirius/internal/task_result"
 	"github.com/barkha06/sirius/internal/task_state"
 	"github.com/bgadrian/fastfaker/faker"
@@ -884,14 +883,18 @@ func validateDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		})
 	}
 
-	cConfig := &sdk_columnar.ClusterConfig{}
-	cmObj := sdk_columnar.ConfigConnectionManager()
+	// cConfig := &sdk_columnar.ClusterConfig{}
+	// cmObj := sdk_columnar.ConfigConnectionManager()
 
-	cbCluster, err := cmObj.GetCluster(extra.ConnStr, extra.Username, extra.Password, cConfig)
-	if err != nil {
-		result.FailWholeBulkOperation(start, end, err, state, gen, seed)
+	// cbCluster, err := cmObj.GetCluster(extra.ConnStr, extra.Username, extra.Password, cConfig)
+	conn2 := db.NewColumnarConnectionManager()
+	dbErr = conn2.Connect(extra.ConnStr, extra.Username, extra.Password, extra)
+	if dbErr != nil {
+		result.FailWholeBulkOperation(start, end, dbErr, state, gen, seed)
 		return
 	}
+	_ = conn2.Warmup(extra.ConnStr, extra.Username, extra.Password, extra)
+	cbCluster := conn2.ConnectionManager.Clusters[extra.ConnStr].Cluster
 	query := "SELECT * from `mongo`.`scope`.`TestCollectionSirius2s` where id IN $ids order by id asc;"
 	params := map[string]interface{}{
 		"ids": docIDs,
@@ -899,7 +902,7 @@ func validateDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	initTime := time.Now().UTC().Format(time.RFC850)
 	cbresult, errAnalyticsQuery := cbCluster.AnalyticsQuery(query, &gocb.AnalyticsOptions{NamedParameters: params})
 	if errAnalyticsQuery != nil {
-		log.Println("In Columnar Read(), unable to execute query")
+		log.Println("In Columnar unable to execute query")
 		log.Println(errAnalyticsQuery)
 		result.FailWholeBulkOperation(start, end, errAnalyticsQuery, state, gen, seed)
 	}
