@@ -440,7 +440,7 @@ func (m Mongo) InsertSubDoc(connStr, username, password, key string, keyValues [
 		}
 	}
 
-	return newMongoSubDocOperationResult(key, keyValues, nil, false, offset)
+	return newMongoSubDocOperationResult(key, keyValues, nil, true, offset)
 }
 
 func (m Mongo) UpsertSubDoc(connStr, username, password, key string, keyValue []KeyValue, offset int64, extra Extras) SubDocOperationResult {
@@ -490,7 +490,7 @@ func (m Mongo) UpsertSubDoc(connStr, username, password, key string, keyValue []
 		}
 	}
 
-	return newMongoSubDocOperationResult(key, keyValue, nil, false, offset)
+	return newMongoSubDocOperationResult(key, keyValue, nil, true, offset)
 
 }
 
@@ -501,12 +501,97 @@ func (m Mongo) Increment(connStr, username, password, key string, keyValue []Key
 
 func (m Mongo) ReplaceSubDoc(connStr, username, password, key string, keyValue []KeyValue, offset int64, extra Extras) SubDocOperationResult {
 	//TODO implement me
-	panic("implement me")
+	// panic("implement me")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, err, false, offset)
+	}
+
+	databaseName := extra.Database
+	collectionName := extra.Collection
+
+	if err := validateStrings(databaseName); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, errors.New("MongoDB Database name is missing"), false, offset)
+	}
+
+	if err := validateStrings(collectionName); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, errors.New("MongoDB Collection name is missing"), false, offset)
+	}
+
+	mongoClient := m.connectionManager.Clusters[connStr].MongoClusterClient
+	mongoCollection := mongoClient.Database(databaseName).Collection(collectionName)
+	for _, x := range keyValue {
+		// filter defines on what basis we find the doc to insert the sub documents
+		filter := bson.M{"_id": key}
+		// Defines the update to add a sub-document to the existing document
+		update := bson.M{
+			"$set": bson.M{
+				x.Key: x.Doc,
+			},
+			"$inc": bson.M{
+				"mutated": 1,
+			},
+		}
+
+		result, err := mongoCollection.UpdateOne(context.TODO(), filter, update)
+		if err != nil {
+			log.Println("In MongoDB InsertSubDoc(), error:", err)
+			return newMongoSubDocOperationResult(key, keyValue, err, false, offset)
+		}
+
+		// Checking if the update operation was successful
+		if result.UpsertedCount == 0 && result.ModifiedCount == 0 {
+			log.Println("No documents matched the filter or no modifications were made")
+			return newMongoSubDocOperationResult(key, keyValue,
+				fmt.Errorf("no documents matched the filter or no modifications were made"), false, offset)
+		}
+
+	}
+
+	return newMongoSubDocOperationResult(key, keyValue, nil, true, offset)
+
 }
 
 func (m Mongo) ReadSubDoc(connStr, username, password, key string, keyValue []KeyValue, offset int64, extra Extras) SubDocOperationResult {
 	//TODO implement me
-	panic("implement me")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, err, false, offset)
+	}
+
+	databaseName := extra.Database
+	collectionName := extra.Collection
+
+	if err := validateStrings(databaseName); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, errors.New("MongoDB Database name is missing"), false, offset)
+	}
+
+	if err := validateStrings(collectionName); err != nil {
+		return newMongoSubDocOperationResult(key, keyValue, errors.New("MongoDB Collection name is missing"), false, offset)
+	}
+
+	mongoClient := m.connectionManager.Clusters[connStr].MongoClusterClient
+	mongoCollection := mongoClient.Database(databaseName).Collection(collectionName)
+	filter := bson.M{"_id": key}
+	projection := bson.M{}
+	for _, x := range keyValue {
+		projection[x.Key] = 1
+	}
+
+	var result interface{}
+	err := mongoCollection.FindOne(context.TODO(), filter, options.FindOne().SetProjection(projection)).Decode(&result)
+	if err != nil {
+		log.Println("In MongoDB ReadSubDoc(), error:", err)
+		return newMongoSubDocOperationResult(key, keyValue, err, false, offset)
+	}
+
+	if result == nil {
+		log.Println("No documents were read despite successful subdocread")
+		return newMongoSubDocOperationResult(key, keyValue,
+			fmt.Errorf("No documents were read despite successful subdocread"), false, offset)
+	}
+
+	return newMongoSubDocOperationResult(key, keyValue, nil, true, offset)
+
+	// panic("implement me")
 }
 
 func (m Mongo) DeleteSubDoc(connStr, username, password, key string, keyValue []KeyValue, offset int64, extra Extras) SubDocOperationResult {
