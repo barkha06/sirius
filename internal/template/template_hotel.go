@@ -42,6 +42,11 @@ type Hotel struct {
 	Padding       string   `json:"padding"`
 }
 
+// buildReview generates the Review slice to be added into Hotel struct
+/*
+ * length defines the number of reviews to be added to Review slice
+ * approximate size of 1 review is around 95bytes
+ */
 func buildReview(fake *faker.Faker, length int32) []Review {
 	var r []Review
 	for i := 0; i < int(length); i++ {
@@ -89,8 +94,14 @@ func (h *Hotel) GenerateDocument(fake *faker.Faker, key string, documentSize int
 	}
 
 	currentDocSize := calculateSizeOfStruct(hotel)
+	//if (currentDocSize) < int(documentSize) {
+	//	hotel.Padding = strings.Repeat("a", int(documentSize)-(currentDocSize))
+	//}
 	if (currentDocSize) < int(documentSize) {
-		hotel.Padding = strings.Repeat("a", int(documentSize)-(currentDocSize))
+		remSize := int(documentSize) - (currentDocSize)
+		numOfReviews := int(remSize/(95*2)) + 1
+		rev := buildReview(fake, int32(numOfReviews))
+		hotel.Reviews = rev
 	}
 	return hotel
 
