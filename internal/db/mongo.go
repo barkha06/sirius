@@ -759,7 +759,7 @@ func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyVal
 	// filter defines on what basis do we delete the documents
 	filter := bson.M{"_id": bson.M{"$in": documentIDs}}
 
-	resultOfDelete, err2 := mongoCollection.DeleteMany(context.Background(), filter)
+	resultOfDelete, err2 := mongoCollection.DeleteMany(context.TODO(), filter)
 	if err2 != nil {
 		result.failBulk(keyValues, err2)
 		return result
@@ -767,6 +767,12 @@ func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyVal
 	if resultOfDelete == nil {
 		for _, x := range keyValues {
 			result.AddResult(x.Key, nil, errors.New("delete successful but result is nil"), true, keyToOffset[x.Key])
+		}
+		return result
+	}
+	if resultOfDelete.DeletedCount == 0 {
+		for _, x := range keyValues {
+			result.AddResult(x.Key, nil, errors.New("zero documents were deleted"), true, keyToOffset[x.Key])
 		}
 		return result
 	}
@@ -817,11 +823,11 @@ func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValu
 	// log.Println(mongoBulkWriteResult)
 	if err != nil {
 		log.Println("MongoDB UpsertBulk(): Bulk Insert Error:", err)
-		result.failBulk(keyValues, errors.New("MongoDB UpdateBulk(): Bulk Upsert Error"))
+		result.failBulk(keyValues, errors.New("MongoDB TouchBulk(): Bulk Touch Error"))
 		return result
 	} else if int64(len(keyValues)) != mongoBulkWriteResult.ModifiedCount && int64(len(keyValues)) != mongoBulkWriteResult.UpsertedCount {
 		// log.Println("count: ", int64(len(keyValues)), mongoBulkWriteResult)
-		result.failBulk(keyValues, errors.New("MongoDB UpdateBulk(): Upserted Count does not match batch size"))
+		result.failBulk(keyValues, errors.New("MongoDB TouchBulk(): Touch Count does not match batch size"))
 		return result
 	}
 
@@ -885,13 +891,14 @@ func (m Mongo) ReadBulk(connStr, username, password string, keyValues []KeyValue
 		result.failBulk(keyValues, err2)
 		return result
 	}
+
 	var results []map[string]interface{}
 	if err := cursor.All(context.TODO(), &results); err != nil {
 		result.failBulk(keyValues, err)
 	}
 
 	for _, resultdoc := range results {
-		log.Println(resultdoc, resultdoc["_id"].(string))
+		// log.Println(resultdoc, resultdoc["_id"].(string))
 		result.AddResult(resultdoc["_id"].(string), resultdoc, nil, true, keyToOffset[resultdoc["_id"].(string)])
 	}
 	return result
