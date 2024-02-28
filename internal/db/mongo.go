@@ -844,7 +844,7 @@ func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyVal
 	// filter defines on what basis do we delete the documents
 	filter := bson.M{"_id": bson.M{"$in": documentIDs}}
 
-	resultOfDelete, err2 := mongoCollection.DeleteMany(context.Background(), filter)
+	resultOfDelete, err2 := mongoCollection.DeleteMany(context.TODO(), filter)
 	if err2 != nil {
 		result.failBulk(keyValues, err2)
 		return result
@@ -856,7 +856,12 @@ func (m Mongo) DeleteBulk(connStr, username, password string, keyValues []KeyVal
 		return result
 	}
 	//log.Printf("Deleted %d document(s)\n", resultOfDelete.DeletedCount)
-
+	if resultOfDelete.DeletedCount == 0 {
+		for _, x := range keyValues {
+			result.AddResult(x.Key, nil, errors.New("zero documents were deleted"), true, keyToOffset[x.Key])
+		}
+		return result
+	}
 	for _, x := range keyValues {
 		result.AddResult(x.Key, nil, nil, true, keyToOffset[x.Key])
 	}
@@ -901,12 +906,12 @@ func (m Mongo) TouchBulk(connStr, username, password string, keyValues []KeyValu
 	mongoBulkWriteResult, err := mongoCollection.BulkWrite(context.TODO(), models, opts)
 	// log.Println(mongoBulkWriteResult)
 	if err != nil {
-		log.Println("MongoDB UpsertBulk(): Bulk Insert Error:", err)
-		result.failBulk(keyValues, errors.New("MongoDB UpdateBulk(): Bulk Upsert Error"))
+		log.Println("MongoDB UpsertBulk(): Bulk Touch Error:", err)
+		result.failBulk(keyValues, errors.New("MongoDB TouchBulk(): Bulk Upsert Error"))
 		return result
 	} else if int64(len(keyValues)) != mongoBulkWriteResult.ModifiedCount && int64(len(keyValues)) != mongoBulkWriteResult.UpsertedCount {
 		// log.Println("count: ", int64(len(keyValues)), mongoBulkWriteResult)
-		result.failBulk(keyValues, errors.New("MongoDB UpdateBulk(): Upserted Count does not match batch size"))
+		result.failBulk(keyValues, errors.New("MongoDB TouchBulk(): Upserted Count does not match batch size"))
 		return result
 	}
 

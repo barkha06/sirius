@@ -40,7 +40,7 @@ func TestMongoDB(t *testing.T) {
 	m := meta_data.NewMetaData()
 	cm1 := m.GetCollectionMetadata("x")
 
-	temp := template.InitialiseTemplate("person")
+	temp := template.InitialiseTemplate("hotel")
 	g := docgenerator.Generator{
 		Template: temp,
 	}
@@ -98,7 +98,55 @@ func TestMongoDB(t *testing.T) {
 	}
 
 	// TODO Upserting Documents into MongoDB
+	for i := int64(0); i < int64(10); i++ {
+		key := i + cm1.Seed
+		docId := gen.BuildKey(key)
+		fake := faker.NewFastFaker()
+		fake.Seed(key)
 
+		// TODO Bulk Upserting Documents into MongoDB
+		doc := g.Template.GenerateDocument(fake, docId, 1024) // Original Doc
+		doc = g.Template.GenerateDocument(fake, docId, 1024)  // 1 Time Mutated Doc
+		//log.Println(docId, doc)
+		updateResult := db.Update(connStr, username, password, KeyValue{
+			Key:    docId,
+			Doc:    doc,
+			Offset: i,
+		}, Extras{
+			Database:   "TestMongoDatabase",
+			Collection: "TestingMongoSirius",
+		})
+		if updateResult.GetError() != nil {
+			t.Error(updateResult.GetError())
+		} else {
+			log.Println("Upserting", updateResult.Key(), " ", updateResult.Value())
+		}
+	}
+
+	// Bulk Updating Documents into MongoDB
+	keyValues = nil
+	for i := int64(10); i < int64(50); i++ {
+		key := i + cm1.Seed
+		docId := gen.BuildKey(key)
+		fake := faker.NewFastFaker()
+		fake.Seed(key)
+		doc := g.Template.GenerateDocument(fake, docId, 1024)
+		doc = g.Template.GenerateDocument(fake, docId, 1024) // 1 Time Mutated Doc
+		//log.Println(docId, Doc)
+		keyVal := KeyValue{docId, doc, i}
+		keyValues = append(keyValues, keyVal)
+	}
+	updateBulkResult := db.UpdateBulk(connStr, username, password, keyValues, Extras{
+		Database:   "TestMongoDatabase",
+		Collection: "TestingMongoSirius",
+	})
+	for _, i := range keyValues {
+		if updateBulkResult.GetError(i.Key) != nil {
+			t.Error(updateBulkResult.GetError(i.Key))
+		} else {
+			log.Println("Bulk Upsert, Inserted Key:", i.Key, "| Value:", i.Doc)
+		}
+	}
 	// TODO Bulk Upserting Documents into MongoDB
 
 	// TODO Reading Documents into MongoDB
