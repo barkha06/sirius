@@ -47,7 +47,7 @@ func TestMongoDB(t *testing.T) {
 	gen := &docgenerator.Generator{
 		KeySize:  0,
 		DocType:  "json",
-		Template: template.InitialiseTemplate("person"),
+		Template: template.InitialiseTemplate("hotel"),
 	}
 
 	// Inserting Documents into MongoDB
