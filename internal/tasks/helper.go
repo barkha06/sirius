@@ -42,6 +42,10 @@ const (
 	SingleSubDocReadOperation    string = "singleSubDocRead"
 	SingleDocValidateOperation   string = "SingleDocValidate"
 	BucketWarmUpOperation        string = "BucketWarmUp"
+	CreateDBOperation            string = "createDatabase"
+	DeleteDBOperation            string = "deleteCollection"
+	ListDBOperation              string = "createDatabase"
+	CountOperation               string = "countDocuments"
 )
 
 func CheckBulkOperation(operation string) bool {

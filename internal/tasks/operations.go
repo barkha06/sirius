@@ -883,10 +883,6 @@ func validateDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		})
 	}
 
-	// cConfig := &sdk_columnar.ClusterConfig{}
-	// cmObj := sdk_columnar.ConfigConnectionManager()
-
-	// cbCluster, err := cmObj.GetCluster(extra.ConnStr, extra.Username, extra.Password, cConfig)
 	conn2 := db.NewColumnarConnectionManager()
 	dbErr = conn2.Connect(extra.ConnStr, extra.Username, extra.Password, extra)
 	if dbErr != nil {
