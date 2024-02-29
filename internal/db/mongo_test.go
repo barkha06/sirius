@@ -47,7 +47,7 @@ func TestMongoDB(t *testing.T) {
 	gen := &docgenerator.Generator{
 		KeySize:  0,
 		DocType:  "json",
-		Template: template.InitialiseTemplate("person"),
+		Template: template.InitialiseTemplate("hotel"),
 	}
 
 	// Inserting Documents into MongoDB
@@ -97,14 +97,12 @@ func TestMongoDB(t *testing.T) {
 		}
 	}
 
-	// TODO Upserting Documents into MongoDB
+	// Updating Documents into MongoDB
 	for i := int64(0); i < int64(10); i++ {
 		key := i + cm1.Seed
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
-
-		// TODO Bulk Upserting Documents into MongoDB
 		doc := g.Template.GenerateDocument(fake, docId, 1024) // Original Doc
 		doc = g.Template.GenerateDocument(fake, docId, 1024)  // 1 Time Mutated Doc
 		//log.Println(docId, doc)
@@ -147,7 +145,6 @@ func TestMongoDB(t *testing.T) {
 			log.Println("Bulk Upsert, Inserted Key:", i.Key, "| Value:", i.Doc)
 		}
 	}
-	// TODO Bulk Upserting Documents into MongoDB
 
 	// TODO Reading Documents into MongoDB
 

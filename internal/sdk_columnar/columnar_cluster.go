@@ -10,8 +10,6 @@ type ClusterConfig struct {
 	ConnectionString string `json:"connectionString,omitempty"`
 	Username         string `json:"username,omitempty"`
 	Password         string `json:"password,omitempty"`
-	AccessKey        string `json:"accessKey,omitempty"`
-	SecretKey        string `json:"secretKey,omitempty"`
 }
 
 func ValidateClusterConfig(connStr, username, password string, c *ClusterConfig) error {
