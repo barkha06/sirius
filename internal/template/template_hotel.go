@@ -161,8 +161,14 @@ func (h *Hotel) UpdateDocument(fieldsToChange []string, lastUpdatedDocument inte
 	}
 	hotel.Padding = ""
 	currentDocSize := calculateSizeOfStruct(hotel)
+	//if (currentDocSize) < int(documentSize) {
+	//	hotel.Padding = strings.Repeat("a", int(documentSize)-(currentDocSize))
+	//}
 	if (currentDocSize) < int(documentSize) {
-		hotel.Padding = strings.Repeat("a", int(documentSize)-(currentDocSize))
+		remSize := int(documentSize) - (currentDocSize)
+		numOfReviews := int(remSize/(95*2)) + 1
+		rev := buildReview(fake, int32(numOfReviews))
+		hotel.Reviews = rev
 	}
 
 	return hotel, nil
