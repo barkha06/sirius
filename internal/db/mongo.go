@@ -312,7 +312,7 @@ func (m Mongo) Read(connStr, username, password, key string, offset int64, extra
 			fmt.Errorf("result is nil even after successful READ operation %s ", connStr), false,
 			offset)
 	}
-	log.Println(result)
+	//log.Println(result)
 	return newMongoOperationResult(key, result, nil, true, offset)
 
 }
