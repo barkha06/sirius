@@ -40,7 +40,7 @@ func TestMongoDB(t *testing.T) {
 	m := meta_data.NewMetaData()
 	cm1 := m.GetCollectionMetadata("x")
 
-	temp := template.InitialiseTemplate("person")
+	temp := template.InitialiseTemplate("hotel")
 	g := docgenerator.Generator{
 		Template: temp,
 	}
@@ -103,7 +103,6 @@ func TestMongoDB(t *testing.T) {
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
-
 		doc := g.Template.GenerateDocument(fake, docId, 1024) // Original Doc
 		doc = g.Template.GenerateDocument(fake, docId, 1024)  // 1 Time Mutated Doc
 		//log.Println(docId, doc)

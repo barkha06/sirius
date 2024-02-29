@@ -1,9 +1,12 @@
 package db
 
 import (
-	"github.com/barkha06/sirius/internal/sdk_columnar"
-	"github.com/couchbase/gocb/v2"
+
 	"log"
+
+	"github.com/couchbase/gocb/v2"
+
+	"github.com/barkha06/sirius/internal/sdk_columnar"
 )
 
 type columnarOperationResult struct {
@@ -48,12 +51,12 @@ func (c *columnarOperationResult) GetOffset() int64 {
 }
 
 type Columnar struct {
-	connectionManager *sdk_columnar.ConnectionManager
+	ConnectionManager *sdk_columnar.ConnectionManager
 }
 
 func NewColumnarConnectionManager() *Columnar {
 	return &Columnar{
-		connectionManager: sdk_columnar.ConfigConnectionManager(),
+		ConnectionManager: sdk_columnar.ConfigConnectionManager(),
 	}
 }
 
@@ -63,7 +66,7 @@ func (c *Columnar) Connect(connStr, username, password string, extra Extras) err
 	}
 	clusterConfig := &sdk_columnar.ClusterConfig{}
 
-	if _, err := c.connectionManager.GetCluster(connStr, username, password, clusterConfig); err != nil {
+	if _, err := c.ConnectionManager.GetCluster(connStr, username, password, clusterConfig); err != nil {
 		log.Println("In Columnar Connect(), error in GetCluster()")
 		return err
 	}
@@ -78,8 +81,11 @@ func (c *Columnar) Warmup(connStr, username, password string, extra Extras) erro
 		return err
 	}
 
+	log.Println("In Columnar Warmup()")
+
 	// Pinging the Cluster
-	cbCluster := c.connectionManager.Clusters[connStr].Cluster
+	cbCluster := c.ConnectionManager.Clusters[connStr].Cluster
+
 	pingRes, errPing := cbCluster.Ping(&gocb.PingOptions{
 		ServiceTypes: []gocb.ServiceType{gocb.ServiceTypeAnalytics},
 	})
@@ -87,7 +93,7 @@ func (c *Columnar) Warmup(connStr, username, password string, extra Extras) erro
 		log.Print("In Columnar Warmup(), error while pinging:", errPing)
 		return errPing
 	}
-	
+  
 	for service, pingReports := range pingRes.Services {
 		if service != gocb.ServiceTypeAnalytics {
 			log.Println("We got a service type that we didn't ask for!")
@@ -111,7 +117,7 @@ func (c *Columnar) Warmup(connStr, username, password string, extra Extras) erro
 }
 
 func (c *Columnar) Close(connStr string) error {
-	return c.connectionManager.Disconnect(connStr)
+	return c.ConnectionManager.Disconnect(connStr)
 }
 
 func (c *Columnar) Create(connStr, username, password string, keyValue KeyValue, extra Extras) OperationResult {
@@ -126,7 +132,7 @@ func (c *Columnar) Update(connStr, username, password string, keyValue KeyValue,
 
 func (c *Columnar) Read(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
 
-	cbCluster := c.connectionManager.Clusters[connStr].Cluster
+	cbCluster := c.ConnectionManager.Clusters[connStr].Cluster
 	//log.Println("Cluster:", cbCluster)
 
 	results, errAnalyticsQuery := cbCluster.AnalyticsQuery(extra.Query, nil)
