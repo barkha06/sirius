@@ -9,17 +9,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-//const WaitUnityReadyTime = 10
-//const WaitUntilReadyTimeRetries = 5
-//const (
-//	ConnectTimeout      = "connectTimeout"
-//	KVTimeout           = "kvTimeout"
-//	KVDurableTimeout    = "kvDurableTimeout"
-//	CompressionDisabled = "compressionDisabled"
-//	CompressionMinSize  = "compressionMinSize"
-//	CompressionMaxSize  = "compressionMinSize"
-//)
-
 // MongoConnectionOptions defines the Connection Options to MongoDB
 type MongoConnectionOptions struct {
 	Compressors          string // zlib, snappy, and zstd.
@@ -77,7 +66,6 @@ func (mongoClusterObj *MongoClusterObject) getMongoDatabaseObject(mongoDbName st
 
 // Close closes the MongoDB Client connection.
 func Close(mongoClusterObj *MongoClusterObject) error {
-	// _ = mongoClusterObj.MongoClusterClient.Close(nil)
 	if err := mongoClusterObj.MongoClusterClient.Disconnect(context.TODO()); err != nil {
 		log.Println("Disconnect failed!")
 		return err

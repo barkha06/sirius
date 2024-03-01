@@ -25,5 +25,4 @@ func (mongoDbObj *MongoDatabaseObject) getCollectionObject(collectionName string
 		mongoDbObj.setCollectionObject(collectionName, mongoCollectionObj)
 		return mongoCollectionObj, nil
 	}
-
 }
