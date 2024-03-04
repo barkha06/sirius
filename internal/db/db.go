@@ -10,6 +10,7 @@ const (
 	CouchbaseDb       = "couchbase"
 	MongoDb           = "mongodb"
 	CouchbaseColumnar = "columnar"
+	CassandraDb       = "cassandra"
 )
 
 type OperationResult interface {
@@ -64,6 +65,7 @@ type Database interface {
 var couchbase *Couchbase
 var mongodb *Mongo
 var cbcolumnar *Columnar
+var cassandra *Cassandra
 
 var lock = &sync.Mutex{}
 

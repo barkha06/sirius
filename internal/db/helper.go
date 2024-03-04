@@ -38,6 +38,9 @@ type Extras struct {
 	ConnStr             string  `json:"connstr,omitempty" doc:"true"`
 	Username            string  `json:"username,omitempty" doc:"true"`
 	Password            string  `json:"password,omitempty" doc:"true"`
+	Keyspace            string  `json:"keyspace,omitempty" doc:"true"`
+	Table               string  `json:"table,omitempty" doc:"true"`
+	NumOfConns          int     `json:"numOfConns,omitempty" doc:"true"`
 }
 
 func validateStrings(values ...string) error {
