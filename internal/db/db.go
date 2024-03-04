@@ -98,6 +98,15 @@ func ConfigDatabase(dbType string) (Database, error) {
 			}
 		}
 		return cbcolumnar, nil
+	case CassandraDb:
+		if cassandra == nil {
+			lock.Lock()
+			defer lock.Unlock()
+			if cbcolumnar == nil {
+				cassandra = NewCassandraConnectionManager()
+			}
+		}
+		return cassandra, nil
 	default:
 		return nil, err_sirius.InvalidDatabase
 	}

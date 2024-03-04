@@ -117,8 +117,90 @@ func (c *Cassandra) Create(connStr, username, password string, keyValue KeyValue
 		return newCassandraOperationResult(keyValue.Key, keyValue.Doc, errors.New("Unable to connect to Cassandra!"), false,
 			keyValue.Offset)
 	}
+	defer cassandraSession.Close()
 
-	insertQuery := "INSERT INTO " + extra.Keyspace + "." + extra.Table + " JSON ?"
+	// ========= Testing some things
+	// ====================================
+
+	//hotelType := reflect.TypeOf(keyValue.Doc).Elem()
+	//fmt.Println("hotelType =", hotelType)
+	//// Iterate over the fields of the struct
+	//hotel := template.Hotel{}
+	//for i := 0; i < hotelType.NumField(); i++ {
+	//	field := hotelType.Field(i)
+	//	fmt.Printf("Field Name: %s, Field Type: %s\n", field.Name, field.Type)
+	//
+	//	// Get the value of the field
+	//	fieldValue := reflect.ValueOf(keyValue.Doc).Elem().FieldByName(field.Name).Interface()
+	//	fmt.Printf("Field Value: %v\n", fieldValue)
+	//
+	//	switch field.Name {
+	//	case "ID":
+	//		hotel.ID = fieldValue.(string)
+	//	case "Country":
+	//		hotel.Country = fieldValue.(string)
+	//	case "Address":
+	//		hotel.Address = fieldValue.(string)
+	//	case "FreeParking":
+	//		hotel.FreeParking = fieldValue.(bool)
+	//	case "City":
+	//		hotel.City = fieldValue.(string)
+	//	case "Type":
+	//		hotel.TemplateType = "Hotel"
+	//	case "URL":
+	//		hotel.URL = fieldValue.(string)
+	//	case "Reviews":
+	//		hotel.Reviews = fieldValue.([]template.Review)
+	//	case "Phone":
+	//		hotel.Phone = fieldValue.(string)
+	//	case "Price":
+	//		hotel.Price = fieldValue.(float64)
+	//	case "AvgRating":
+	//		hotel.AvgRating = fieldValue.(float64)
+	//	case "FreeBreakfast":
+	//		hotel.FreeBreakfast = fieldValue.(bool)
+	//	case "Name":
+	//		hotel.Name = fieldValue.(string)
+	//	case "PublicLikes":
+	//		hotel.PublicLikes = fieldValue.([]string)
+	//	case "Email":
+	//		hotel.Email = fieldValue.(string)
+	//	case "Mutated":
+	//		hotel.Mutated = fieldValue.(float64)
+	//	case "Padding":
+	//		hotel.Padding = ""
+	//
+	//	}
+
+	//if field.Name == "ID" {
+	//	hotel.ID = fieldValue.(string)
+	//} else if field.Name == "Country" {
+	//	hotel.Country = fieldValue.(string)
+	//} else if field.Name == "Address" {
+	//	hotel.Address = fieldValue.(string)
+	//} else if field.Name == "FreeParking" {
+	//	hotel.FreeParking = fieldValue.(bool)
+	//} else if field.Name == "City" {
+	//	hotel.City = fieldValue.(string)
+	//} else if field.Name == "Type" {
+	//	hotel.Type = "Hotel"
+	//} else if field.Name == "URL" {
+	//	hotel.URL = fieldValue.(string)
+	//}
+	//}
+
+	//fieldValue1 := reflect.ValueOf(keyValue.Doc).Elem().Interface()
+
+	//fmt.Println("fieldValue1:", fieldValue1)
+	//fmt.Println(hotel)
+
+	//docValue := reflect.ValueOf(keyValue.Doc).Elem().Interface()
+	//jsonData, errDocToJSON := json.Marshal(docValue)
+	//if errDocToJSON != nil {
+	//	fmt.Println(errDocToJSON)
+	//}
+
+	// =========
 
 	// Converting the Document to JSON
 	jsonData, errDocToJSON := json.Marshal(keyValue.Doc)
@@ -126,9 +208,11 @@ func (c *Cassandra) Create(connStr, username, password string, keyValue KeyValue
 		log.Println("Error marshaling JSON:", errDocToJSON)
 	}
 
-	errInsert := cassandraSession.Query(insertQuery, jsonData).Exec()
+	insertQuery := "INSERT INTO " + extra.Table + " JSON '" + string(jsonData) + "'"
+	//errInsert := cassandraSession.Query(insertQuery, jsonData).Exec()
+	errInsert := cassandraSession.Query(insertQuery).Exec()
 	if errInsert != nil {
-		log.Println("Error inserting data:", errInsert)
+		log.Println("In Cassandra Create(), Error inserting data:", errInsert)
 		return newCassandraOperationResult(keyValue.Key, keyValue.Doc, errInsert, false, keyValue.Offset)
 	}
 	return newCassandraOperationResult(keyValue.Key, keyValue.Doc, nil, true, keyValue.Offset)
