@@ -584,7 +584,9 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 		skip[offset] = struct{}{}
 	}
 
-	database, dbErr := db.ConfigDatabase(databaseInfo.DBType)
+	//database, dbErr := db.ConfigDatabase(databaseInfo.DBType)
+	_, dbErr := db.ConfigDatabase(databaseInfo.DBType)
+
 	if dbErr != nil {
 		result.FailWholeBulkOperation(start, end, dbErr, state, gen, seed)
 		return
@@ -609,21 +611,28 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 	}
 
 	initTime := time.Now().UTC().Format(time.RFC850)
-	bulkResult := database.CreateBulk(databaseInfo.ConnStr, databaseInfo.Username, databaseInfo.Password, keyValues,
-		extra)
+	//bulkResult := database.CreateBulk(databaseInfo.ConnStr, databaseInfo.Username, databaseInfo.Password, keyValues,
+	//	extra)
+
+	//for _, x := range keyValues {
+	//	if bulkResult.GetError(x.Key) != nil {
+	//		if db.CheckAllowedInsertError(bulkResult.GetError(x.Key)) && rerun {
+	//			state.StateChannel <- task_state.StateHelper{Status: task_state.COMPLETED, Offset: x.Offset}
+	//		} else {
+	//			result.IncrementFailure(initTime, x.Key, bulkResult.GetError(x.Key), false, bulkResult.GetExtra(x.Key),
+	//				x.Offset)
+	//			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
+	//		}
+	//	} else {
+	//		state.StateChannel <- task_state.StateHelper{Status: task_state.COMPLETED, Offset: x.Offset}
+	//	}
+	//
+	//}
 
 	for _, x := range keyValues {
-		if bulkResult.GetError(x.Key) != nil {
-			if db.CheckAllowedInsertError(bulkResult.GetError(x.Key)) && rerun {
-				state.StateChannel <- task_state.StateHelper{Status: task_state.COMPLETED, Offset: x.Offset}
-			} else {
-				result.IncrementFailure(initTime, x.Key, bulkResult.GetError(x.Key), false, bulkResult.GetExtra(x.Key),
-					x.Offset)
-				state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
-			}
-		} else {
-			state.StateChannel <- task_state.StateHelper{Status: task_state.COMPLETED, Offset: x.Offset}
-		}
+
+		result.IncrementFailure(initTime, x.Key, errors.New("Test"), false, nil, x.Offset)
+		state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
 
 	}
 }
