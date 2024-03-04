@@ -1,4 +1,4 @@
-package dynamo
+package sdk_dynamodb
 
 import (
 	"fmt"
