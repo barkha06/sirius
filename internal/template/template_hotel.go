@@ -10,11 +10,11 @@ import (
 )
 
 type Rating struct {
-	Value       float64 `json:"value,omitempty"`
-	Cleanliness float64 `json:"Cleanliness,omitempty"`
-	Overall     float64 `json:"Overall,omitempty"`
-	CheckIn     float64 `json:"Check in / front desk,omitempty"`
-	Rooms       float64 `json:"Rooms,omitempty"`
+	RatingValue float64 `json:"rating_value,omitempty"`
+	Cleanliness float64 `json:"cleanliness,omitempty"`
+	Overall     float64 `json:"overall,omitempty"`
+	CheckIn     float64 `json:"checkin,omitempty"`
+	Rooms       float64 `json:"rooms,omitempty"`
 }
 type Review struct {
 	Date   string `json:"date,omitempty"`
@@ -23,12 +23,12 @@ type Review struct {
 }
 
 type Hotel struct {
-	ID            string   `json:"_id" bson:"_id"`
+	ID            string   `json:"id" bson:"_id"`
 	Country       string   `json:"country,omitempty"`
 	Address       string   `json:"address,omitempty"`
 	FreeParking   bool     `json:"free_parking,omitempty"`
 	City          string   `json:"city,omitempty"`
-	Type          string   `json:"type"`
+	TemplateType  string   `json:"template_type"`
 	URL           string   `json:"url,omitempty"`
 	Reviews       []Review `json:"reviews,omitempty"`
 	Phone         string   `json:"phone,omitempty"`
@@ -54,7 +54,7 @@ func buildReview(fake *faker.Faker, length int32) []Review {
 			Date:   fake.DateStr(),
 			Author: fake.Name(),
 			Rating: Rating{
-				Value:       float64(fake.Int32Range(0, 10)),
+				RatingValue: float64(fake.Int32Range(0, 10)),
 				Cleanliness: float64(fake.Int32Range(0, 10)),
 				Overall:     float64(fake.Int32Range(1, 10)),
 				CheckIn:     float64(fake.Int32Range(0, 100)),
@@ -80,7 +80,7 @@ func (h *Hotel) GenerateDocument(fake *faker.Faker, key string, documentSize int
 		Address:       fake.Address().Address,
 		FreeParking:   fake.Bool(),
 		City:          fake.Address().City,
-		Type:          "Hotel",
+		TemplateType:  "Hotel",
 		URL:           fake.URL(),
 		Reviews:       buildReview(fake, fake.Int32Range(1, 3)),
 		Phone:         fake.Phone(),
