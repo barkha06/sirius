@@ -635,6 +635,7 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 		state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
 
 	}
+	keyValues = keyValues[:0]
 }
 
 func bulkUpsertDocuments(start int64, end int64, seed int64, operationConfig *OperationConfig, rerun bool,
