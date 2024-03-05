@@ -538,8 +538,45 @@ func (c *Cassandra) ReplaceSubDoc(connStr, username, password, key string, keyVa
 
 func (c *Cassandra) ReadSubDoc(connStr, username, password, key string, keyValues []KeyValue, offset int64,
 	extra Extras) SubDocOperationResult {
-	// TODO
-	panic("Implement the function")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
+	}
+	tableName := extra.Table
+	keyspaceName := extra.Keyspace
+	if err := validateStrings(tableName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Table name is missing"), false, extra.Cas, offset)
+	}
+	if err := validateStrings(keyspaceName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Keyspace is missing"), false, extra.Cas, offset)
+	}
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra ReadSubDoc(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
+	}
+	for range keyValues {
+		columnName := "subdoc"
+		var result map[string]interface{}
+		if !cassandraColumnExists(cassandraSession, keyspaceName, tableName, columnName) {
+			return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("No subdocs field found."), false, extra.Cas, offset)
+		}
+		selectSubDocQuery := fmt.Sprintf("SELECT %s FROM %s WHERE ID = ?", columnName, tableName)
+		iter := cassandraSession.Query(selectSubDocQuery, key).Iter()
+		result = make(map[string]interface{})
+		success := iter.MapScan(result)
+		if !success {
+			if result == nil {
+				return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("No documents found despite successful subdocread."), false, extra.Cas, offset)
+			} else if err := iter.Close(); err != nil {
+				return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Unsuccessful READ operation."), false, extra.Cas, offset)
+			}
+		}
+		if result["subdoc"] == "" {
+			return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("No subdocs found."), false, extra.Cas, offset)
+		}
+	}
+	return newCassandraSubDocOperationResult(key, keyValues, nil, true, offset)
 }
 
 func (c *Cassandra) DeleteSubDoc(connStr, username, password, key string, keyValues []KeyValue, offset int64,
