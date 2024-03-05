@@ -2,6 +2,9 @@ package db
 
 import (
 	"fmt"
+	"github.com/gocql/gocql"
+	"log"
+	"strings"
 
 	"github.com/barkha06/sirius/internal/err_sirius"
 )
@@ -50,4 +53,26 @@ func validateStrings(values ...string) error {
 		}
 	}
 	return nil
+}
+
+func cassandraColumnExists(session *gocql.Session, keyspace, tableName, columnName string) bool {
+	keyspaceMetadata, err := session.KeyspaceMetadata(keyspace)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tableMetadata, found := keyspaceMetadata.Tables[tableName]
+	if !found {
+		return false
+	}
+	for _, column := range tableMetadata.Columns {
+		if strings.EqualFold(column.Name, columnName) {
+			return true
+		}
+	}
+	return false
 }
