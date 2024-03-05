@@ -157,19 +157,22 @@ func (c *Cassandra) Read(connStr, username, password, key string, offset int64, 
 		return newCassandraOperationResult(key, nil, err1, false, offset)
 	}
 	var result map[string]interface{}
-	iter := cassandraSessionObj.Query("SELECT * FROM ?.? WHERE ID=?", keyspaceName, tableName, key).Iter()
+	query := "SELECT * FROM " + keyspaceName + "." + tableName + " WHERE ID = ?"
+	iter := cassandraSessionObj.Query(query, key).Iter()
 	result = make(map[string]interface{})
-	if iter.Scan(&result) {
-		return newCassandraOperationResult(key, result, nil, true, offset)
-	} else if err := iter.Close(); err != nil {
-		return newCassandraOperationResult(key, nil,
-			fmt.Errorf("result is nil even after unsuccessful READ operation %s ", connStr), false,
-			offset)
-	} else {
-		return newCassandraOperationResult(key, nil,
-			fmt.Errorf("result is nil even after successful READ operation %s ", connStr), false,
-			offset)
+	success := iter.MapScan(result)
+	if !success {
+		if iter.NumRows() == 0 {
+			return newCassandraOperationResult(key, nil,
+				fmt.Errorf("result is nil even after successful READ operation %s ", connStr), false,
+				offset)
+		} else if err := iter.Close(); err != nil {
+			return newCassandraOperationResult(key, nil,
+				fmt.Errorf("Unsuccessful READ operation %s ", connStr), false,
+				offset)
+		}
 	}
+	return newCassandraOperationResult(key, result, nil, true, offset)
 }
 
 func (c *Cassandra) Delete(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
