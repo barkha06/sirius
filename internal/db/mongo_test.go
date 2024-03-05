@@ -30,8 +30,8 @@ func TestMongoDB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	connStr := "mongodb://Administrator1:password@mongo.cbqeoc.com:27017/"
-	username := "Administrator1"
+	connStr := "connection string"
+	username := "username"
 	password := "password"
 	if err := db.Connect(connStr, username, password, Extras{}); err != nil {
 		t.Error(err)
