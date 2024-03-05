@@ -273,7 +273,7 @@ func (c *Cassandra) Read(connStr, username, password, key string, offset int64, 
 	result = make(map[string]interface{})
 	success := iter.MapScan(result)
 	if !success {
-		if iter.NumRows() == 0 {
+		if result == nil {
 			return newCassandraOperationResult(key, nil,
 				fmt.Errorf("result is nil even after successful READ operation %s ", connStr), false,
 				offset)
@@ -328,6 +328,7 @@ func (c *Cassandra) Touch(connStr, username, password, key string, offset int64,
 		return newCassandraOperationResult(key, nil, err1, false, offset)
 	}
 	query := fmt.Sprintf("UPDATE %s.%s USING TTL %d WHERE ID = ?", keyspaceName, tableName, extra.Expiry)
+	fmt.Println(query)
 	if err2 := cassandraSessionObj.Query(query, key).Exec(); err2 != nil {
 		return newCassandraOperationResult(key, nil, err2, false, offset)
 	}
@@ -439,8 +440,48 @@ func (c *Cassandra) UpdateBulk(connStr, username, password string, keyValues []K
 }
 
 func (c *Cassandra) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	// TODO
-	panic("Implement the function")
+	result := newCassandraBulkOperation()
+	if err := validateStrings(connStr, username, password); err != nil {
+		result.failBulk(keyValues, err)
+		return result
+	}
+
+	keyToOffset := make(map[string]int64)
+	keysToString := "("
+	for _, x := range keyValues {
+		keyToOffset[x.Key] = x.Offset
+		keysToString += "'" + x.Key + "'" + ","
+	}
+	keysToString = keysToString[:len(keysToString)-1] + ")"
+	if err := validateStrings(extra.Keyspace); err != nil {
+		result.failBulk(keyValues, errors.New("Keyspace name is missing"))
+		return result
+	}
+	if err := validateStrings(extra.Table); err != nil {
+		result.failBulk(keyValues, errors.New("Table name is missing"))
+		return result
+	}
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra Read(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		result.failBulk(keyValues, errSessionCreate)
+		return result
+	}
+
+	query := "SELECT * FROM " + extra.Table + " WHERE ID IN " + keysToString
+	iter := cassandraSession.Query(query).Iter()
+	if iter.NumRows() != len(keyValues) {
+		result.failBulk(keyValues, errors.New("Unable to perform Bulk Read"))
+	}
+	for {
+		row := make(map[string]interface{})
+		if !iter.MapScan(row) {
+			break
+		}
+		result.AddResult(row["id"].(string), nil, nil, false, keyToOffset[row["id"].(string)])
+	}
+	return result
 }
 
 func (c *Cassandra) DeleteBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
