@@ -267,19 +267,23 @@ func (c *Cassandra) Read(connStr, username, password, key string, offset int64, 
 		return newCassandraOperationResult(key, nil, err1, false, offset)
 	}
 	var result map[string]interface{}
-	iter := cassandraSessionObj.Query("SELECT * FROM ?.? WHERE ID=?", keyspaceName, tableName, key).Iter()
-	//result = make(map[string]interface{})
-	if iter.Scan(&result) {
-		return newCassandraOperationResult(key, result, nil, true, offset)
-	} else if err := iter.Close(); err != nil {
-		return newCassandraOperationResult(key, nil,
-			fmt.Errorf("result is nil even after unsuccessful READ operation %s ", connStr), false,
-			offset)
-	} else {
-		return newCassandraOperationResult(key, nil,
-			fmt.Errorf("result is nil even after successful READ operation %s ", connStr), false,
-			offset)
+
+	query := "SELECT * FROM " + keyspaceName + "." + tableName + " WHERE ID = ?"
+	iter := cassandraSessionObj.Query(query, key).Iter()
+	result = make(map[string]interface{})
+	success := iter.MapScan(result)
+	if !success {
+		if iter.NumRows() == 0 {
+			return newCassandraOperationResult(key, nil,
+				fmt.Errorf("result is nil even after successful READ operation %s ", connStr), false,
+				offset)
+		} else if err := iter.Close(); err != nil {
+			return newCassandraOperationResult(key, nil,
+				fmt.Errorf("Unsuccessful READ operation %s ", connStr), false,
+				offset)
+		}
 	}
+	return newCassandraOperationResult(key, result, nil, true, offset)
 }
 
 func (c *Cassandra) Delete(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
@@ -308,8 +312,26 @@ func (c *Cassandra) Delete(connStr, username, password, key string, offset int64
 }
 
 func (c *Cassandra) Touch(connStr, username, password, key string, offset int64, extra Extras) OperationResult {
-	// TODO
-	panic("Implement the function")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newCassandraOperationResult(key, nil, err, false, offset)
+	}
+	tableName := extra.Table
+	keyspaceName := extra.Keyspace
+	if err := validateStrings(tableName); err != nil {
+		return newCassandraOperationResult(key, nil, errors.New("Table name is missing"), false, offset)
+	}
+	if err := validateStrings(keyspaceName); err != nil {
+		return newCassandraOperationResult(key, nil, errors.New("Keyspace is missing"), false, offset)
+	}
+	cassandraSessionObj, err1 := c.CassandraConnectionManager.GetCassandraCluster(connStr, username, password, nil)
+	if err1 != nil {
+		return newCassandraOperationResult(key, nil, err1, false, offset)
+	}
+	query := fmt.Sprintf("UPDATE %s.%s USING TTL %d WHERE ID = ?", keyspaceName, tableName, extra.Expiry)
+	if err2 := cassandraSessionObj.Query(query, key).Exec(); err2 != nil {
+		return newCassandraOperationResult(key, nil, err2, false, offset)
+	}
+	return newCassandraOperationResult(key, nil, nil, true, offset)
 }
 
 func (c *Cassandra) InsertSubDoc(connStr, username, password, key string, keyValues []KeyValue, offset int64,
