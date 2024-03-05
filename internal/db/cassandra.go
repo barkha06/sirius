@@ -435,8 +435,65 @@ func (c *Cassandra) CreateBulk(connStr, username, password string, keyValues []K
 }
 
 func (c *Cassandra) UpdateBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	// TODO
-	panic("Implement the function")
+	result := newCassandraBulkOperation()
+	if err := validateStrings(connStr, username, password); err != nil {
+		result.failBulk(keyValues, err)
+		return result
+	}
+
+	keyToOffset := make(map[string]int64)
+	for _, x := range keyValues {
+		keyToOffset[x.Key] = x.Offset
+	}
+
+	if err := validateStrings(extra.Keyspace); err != nil {
+		result.failBulk(keyValues, errors.New("Keyspace name is missing"))
+		return result
+	}
+	if err := validateStrings(extra.Table); err != nil {
+		result.failBulk(keyValues, errors.New("Table name is missing"))
+		return result
+	}
+
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra Update(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		result.failBulk(keyValues, errSessionCreate)
+		return result
+	}
+
+	cassBatchOp := cassandraSession.NewBatch(gocql.UnloggedBatch).WithContext(context.TODO())
+	for _, x := range keyValues {
+		// Converting the Document to JSON
+		jsonData, errDocToJSON := json.Marshal(x.Doc)
+		if errDocToJSON != nil {
+			log.Println("In Cassandra Update(), error marshaling JSON:", errDocToJSON)
+		}
+
+		var docL []interface{}
+		//docL = append(docL, reflect.ValueOf(x.Doc).Elem().Interface())
+		docL = append(docL, jsonData)
+		cassBatchOp.Entries = append(cassBatchOp.Entries, gocql.BatchEntry{
+			Stmt:       "INSERT INTO " + extra.Table + " JSON ? DEFAULT UNSET",
+			Args:       docL,
+			Idempotent: true,
+		})
+
+	}
+
+	errBulkUpdate := cassandraSession.ExecuteBatch(cassBatchOp)
+	if errBulkUpdate != nil {
+		log.Println("In Cassandra UpdateBulk(), ExecuteBatch() Error:", errBulkUpdate)
+		result.failBulk(keyValues, errBulkUpdate)
+		return result
+	}
+
+	for _, x := range keyValues {
+		//log.Println("Successfully inserted document with id:", x.Key)
+		result.AddResult(x.Key, nil, nil, true, keyToOffset[x.Key])
+	}
+	return result
 }
 
 func (c *Cassandra) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
@@ -485,8 +542,56 @@ func (c *Cassandra) ReadBulk(connStr, username, password string, keyValues []Key
 }
 
 func (c *Cassandra) DeleteBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	// TODO
-	panic("Implement the function")
+	result := newCassandraBulkOperation()
+	if err := validateStrings(connStr, username, password); err != nil {
+		result.failBulk(keyValues, err)
+		return result
+	}
+
+	keyToOffset := make(map[string]int64)
+	for _, x := range keyValues {
+		keyToOffset[x.Key] = x.Offset
+	}
+
+	if err := validateStrings(extra.Keyspace); err != nil {
+		result.failBulk(keyValues, errors.New("Keyspace name is missing"))
+		return result
+	}
+	if err := validateStrings(extra.Table); err != nil {
+		result.failBulk(keyValues, errors.New("Table name is missing"))
+		return result
+	}
+
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra Delete(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		result.failBulk(keyValues, errSessionCreate)
+		return result
+	}
+
+	cassBatchOp := cassandraSession.NewBatch(gocql.UnloggedBatch).WithContext(context.TODO())
+	for _, x := range keyValues {
+		cassBatchOp.Entries = append(cassBatchOp.Entries, gocql.BatchEntry{
+			Stmt:       "DELETE FROM " + extra.Table + " WHERE ID=?",
+			Args:       []interface{}{x.Key},
+			Idempotent: true,
+		})
+
+	}
+
+	errBulkUpdate := cassandraSession.ExecuteBatch(cassBatchOp)
+	if errBulkUpdate != nil {
+		log.Println("In Cassandra DeleteBulk(), ExecuteBatch() Error:", errBulkUpdate)
+		result.failBulk(keyValues, errBulkUpdate)
+		return result
+	}
+
+	for _, x := range keyValues {
+		//log.Println("Successfully inserted document with id:", x.Key)
+		result.AddResult(x.Key, nil, nil, true, keyToOffset[x.Key])
+	}
+	return result
 }
 
 func (c *Cassandra) TouchBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
