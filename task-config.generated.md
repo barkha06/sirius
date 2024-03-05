@@ -324,6 +324,9 @@ Description : Warming up a connection to database.
 | `ConnStr` | `string` | `json:connstr,omitempty`  |
 | `Username` | `string` | `json:username,omitempty`  |
 | `Password` | `string` | `json:password,omitempty`  |
+| `Keyspace` | `string` | `json:keyspace,omitempty`  |
+| `Table` | `string` | `json:table,omitempty`  |
+| `NumOfConns` | `int` | `json:numOfConns,omitempty`  |
 
 ---
 Possible values for durability :-
