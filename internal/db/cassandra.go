@@ -557,7 +557,7 @@ func (c *Cassandra) DeleteSubDoc(connStr, username, password, key string, keyVal
 	}
 	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
 	if errSessionCreate != nil {
-		log.Println("In Cassandra ReplaceSubDoc(), unable to connect to Cassandra:")
+		log.Println("In Cassandra DeleteSubDoc(), unable to connect to Cassandra:")
 		log.Println(errSessionCreate)
 		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
 	}
@@ -570,16 +570,16 @@ func (c *Cassandra) DeleteSubDoc(connStr, username, password, key string, keyVal
 				return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
 			}
 		}
-		replaceSubDocQuery := fmt.Sprintf("UPDATE %s SET %s=? WHERE ID = ?", tableName, columnName)
-		errreplaceSubDocQuery := cassandraSession.Query(replaceSubDocQuery, nil, key).Exec()
-		if errreplaceSubDocQuery != nil {
-			log.Println("In Cassandra ReplaceSubDoc(), error inserting data:", errreplaceSubDocQuery)
-			return newCouchbaseSubDocOperationResult(key, keyValues, errreplaceSubDocQuery, false, extra.Cas, offset)
+		delSubDocQuery := fmt.Sprintf("UPDATE %s SET %s=? WHERE ID = ?", tableName, columnName)
+		errdelSubDocQuery := cassandraSession.Query(delSubDocQuery, nil, key).Exec()
+		if errdelSubDocQuery != nil {
+			log.Println("In Cassandra DeleteSubDoc(), error inserting data:", errdelSubDocQuery)
+			return newCouchbaseSubDocOperationResult(key, keyValues, errdelSubDocQuery, false, extra.Cas, offset)
 		}
 		mutationClearSubDocQuery := fmt.Sprintf("UPDATE %s SET %s=%f WHERE ID = ?", tableName, "mutated", 0.0)
 		errmutationClearSubDocQuery := cassandraSession.Query(mutationClearSubDocQuery, key).Exec()
 		if errmutationClearSubDocQuery != nil {
-			log.Println("In Cassandra UpsertSubDoc(), error updating mutated field:", errmutationClearSubDocQuery)
+			log.Println("In Cassandra DeleteSubDoc(), error updating mutated field:", errmutationClearSubDocQuery)
 			return newCouchbaseSubDocOperationResult(key, keyValues, errmutationClearSubDocQuery, false, extra.Cas, offset)
 		}
 	}
