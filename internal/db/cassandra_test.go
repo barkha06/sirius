@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestMongoDB(t *testing.T) {
+func TestCassandraDB(t *testing.T) {
 	/*
 		This test does the following
 		1. Insert in the range of 0-10
@@ -26,11 +26,11 @@ func TestMongoDB(t *testing.T) {
 		8. Bulk Delete documents in the range of 0-40
 	*/
 
-	db, err := ConfigDatabase("mongodb")
+	db, err := ConfigDatabase("cassandra")
 	if err != nil {
 		t.Fatal(err)
 	}
-	connStr := "connection string"
+	connStr := "127.0.0.1:9042"
 	username := "username"
 	password := "password"
 	if err := db.Connect(connStr, username, password, Extras{}); err != nil {
@@ -50,7 +50,7 @@ func TestMongoDB(t *testing.T) {
 		Template: template.InitialiseTemplate("hotel"),
 	}
 
-	// Inserting Documents into MongoDB
+	// Inserting Documents into Cassandra
 	for i := int64(0); i < int64(10); i++ {
 		key := i + cm1.Seed
 		docId := gen.BuildKey(key)
@@ -63,8 +63,8 @@ func TestMongoDB(t *testing.T) {
 			Doc:    doc,
 			Offset: i,
 		}, Extras{
-			Database:   "TestMongoDatabase",
-			Collection: "TestingMongoSirius",
+			Keyspace: "test_sirius",
+			Table:    "hotels",
 		})
 		if createResult.GetError() != nil {
 			t.Error(createResult.GetError())
@@ -73,7 +73,7 @@ func TestMongoDB(t *testing.T) {
 		}
 	}
 
-	// Bulk Inserting Documents into MongoDB
+	// Bulk Inserting Documents into Cassandra
 	var keyValues []KeyValue
 	for i := int64(10); i < int64(50); i++ {
 		key := i + cm1.Seed
@@ -86,8 +86,8 @@ func TestMongoDB(t *testing.T) {
 		keyValues = append(keyValues, keyVal)
 	}
 	createBulkResult := db.CreateBulk(connStr, username, password, keyValues, Extras{
-		Database:   "TestMongoDatabase",
-		Collection: "TestingMongoSirius",
+		Keyspace: "test_sirius",
+		Table:    "hotels",
 	})
 	for _, i := range keyValues {
 		if createBulkResult.GetError(i.Key) != nil {
@@ -97,7 +97,7 @@ func TestMongoDB(t *testing.T) {
 		}
 	}
 
-	// Updating Documents into MongoDB
+	// Updating Documents into Cassandra
 	for i := int64(0); i < int64(10); i++ {
 		key := i + cm1.Seed
 		docId := gen.BuildKey(key)
@@ -111,8 +111,8 @@ func TestMongoDB(t *testing.T) {
 			Doc:    doc,
 			Offset: i,
 		}, Extras{
-			Database:   "TestMongoDatabase",
-			Collection: "TestingMongoSirius",
+			Keyspace: "test_sirius",
+			Table:    "hotels",
 		})
 		if updateResult.GetError() != nil {
 			t.Error(updateResult.GetError())
@@ -121,7 +121,7 @@ func TestMongoDB(t *testing.T) {
 		}
 	}
 
-	// Bulk Updating Documents into MongoDB
+	// Bulk Updating Documents into Cassandra
 	keyValues = nil
 	for i := int64(10); i < int64(50); i++ {
 		key := i + cm1.Seed
@@ -135,8 +135,8 @@ func TestMongoDB(t *testing.T) {
 		keyValues = append(keyValues, keyVal)
 	}
 	updateBulkResult := db.UpdateBulk(connStr, username, password, keyValues, Extras{
-		Database:   "TestMongoDatabase",
-		Collection: "TestingMongoSirius",
+		Keyspace: "test_sirius",
+		Table:    "hotels",
 	})
 	for _, i := range keyValues {
 		if updateBulkResult.GetError(i.Key) != nil {
@@ -146,18 +146,18 @@ func TestMongoDB(t *testing.T) {
 		}
 	}
 
-	// TODO Reading Documents into MongoDB
+	// TODO Reading Documents into Cassandra
 
-	// TODO Bulk Reading Documents into MongoDB
+	// TODO Bulk Reading Documents into Cassandra
 
-	// Deleting Documents from MongoDB
+	// Deleting Documents from Cassandra
 	for i := int64(40); i < int64(50); i++ {
 		key := i + cm1.Seed
 		docId := gen.BuildKey(key)
 
 		deleteResult := db.Delete(connStr, username, password, docId, i, Extras{
-			Database:   "TestMongoDatabase",
-			Collection: "TestingMongoSirius",
+			Keyspace: "test_sirius",
+			Table:    "hotels",
 		})
 		if deleteResult.GetError() != nil {
 			t.Error(deleteResult.GetError())
@@ -166,7 +166,7 @@ func TestMongoDB(t *testing.T) {
 		}
 	}
 
-	// Bulk Deleting Documents from MongoDB
+	// Bulk Deleting Documents from Cassandra
 	keyValues = nil
 	for i := int64(0); i < int64(40); i++ {
 		key := i + cm1.Seed
@@ -176,8 +176,8 @@ func TestMongoDB(t *testing.T) {
 		keyValues = append(keyValues, keyVal)
 	}
 	deleteBulkResult := db.DeleteBulk(connStr, username, password, keyValues, Extras{
-		Database:   "TestMongoDatabase",
-		Collection: "TestingMongoSirius",
+		Keyspace: "test_sirius",
+		Table:    "hotels",
 	})
 	for _, i := range keyValues {
 		if deleteBulkResult.GetError(i.Key) != nil {
@@ -187,7 +187,7 @@ func TestMongoDB(t *testing.T) {
 		}
 	}
 
-	// Closing the Connection to MongoDB
+	// Closing the Connection to Cassandra
 	if err = db.Close(connStr); err != nil {
 		t.Error(err)
 		t.Fail()

@@ -45,6 +45,8 @@ type Extras struct {
 	Table               string  `json:"table,omitempty" doc:"true"`
 	NumOfConns          int     `json:"numOfConns,omitempty" doc:"true"`
 	SubDocPath          string  `json:"subDocPath,omitempty" doc:"true"`
+	ReplicationFactor   int     `json:"replicationFactor,omitempty" doc:"true"`
+	CassandraClass      string  `json:"cassandraClass,omitempty" doc:"true"`
 }
 
 func validateStrings(values ...string) error {

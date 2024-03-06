@@ -328,6 +328,8 @@ Description : Warming up a connection to database.
 | `Table` | `string` | `json:table,omitempty`  |
 | `NumOfConns` | `int` | `json:numOfConns,omitempty`  |
 | `SubDocPath` | `string` | `json:subDocPath,omitempty`  |
+| `ReplicationFactor` | `int` | `json:replicationFactor,omitempty`  |
+| `CassandraClass` | `string` | `json:cassandraClass,omitempty`  |
 
 ---
 Possible values for durability :-
