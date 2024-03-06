@@ -138,6 +138,59 @@ func (m *cassandraBulkOperationResult) GetSize() int {
 	return len(m.keyValues)
 }
 
+type perCassandraSubDocResult struct {
+	keyValue []KeyValue
+	error    error
+	status   bool
+	offset   int64
+}
+
+type cassandraSubDocOperationResult struct {
+	key    string
+	result perCassandraSubDocResult
+}
+
+func newCassandraSubDocOperationResult(key string, keyValue []KeyValue, err error, status bool, offset int64) *cassandraSubDocOperationResult {
+	return &cassandraSubDocOperationResult{
+		key: key,
+		result: perCassandraSubDocResult{
+			keyValue: keyValue,
+			error:    err,
+			status:   status,
+			offset:   offset,
+		},
+	}
+}
+
+func (m *cassandraSubDocOperationResult) Key() string {
+	return m.key
+}
+
+func (m *cassandraSubDocOperationResult) Value(subPath string) (interface{}, int64) {
+	for _, x := range m.result.keyValue {
+		if x.Key == subPath {
+			return x.Doc, x.Offset
+		}
+	}
+	return nil, -1
+}
+
+func (m *cassandraSubDocOperationResult) Values() []KeyValue {
+	return m.result.keyValue
+}
+
+func (m *cassandraSubDocOperationResult) GetError() error {
+	return m.result.error
+}
+
+func (m *cassandraSubDocOperationResult) GetExtra() map[string]any {
+	return map[string]any{}
+}
+
+func (m *cassandraSubDocOperationResult) GetOffset() int64 {
+	return m.result.offset
+}
+
 func (c *Cassandra) Connect(connStr, username, password string, extra Extras) error {
 	if err := validateStrings(connStr, username, password); err != nil {
 		return err
@@ -273,7 +326,7 @@ func (c *Cassandra) Read(connStr, username, password, key string, offset int64, 
 	result = make(map[string]interface{})
 	success := iter.MapScan(result)
 	if !success {
-		if iter.NumRows() == 0 {
+		if result == nil {
 			return newCassandraOperationResult(key, nil,
 				fmt.Errorf("result is nil even after successful READ operation %s ", connStr), false,
 				offset)
@@ -328,6 +381,7 @@ func (c *Cassandra) Touch(connStr, username, password, key string, offset int64,
 		return newCassandraOperationResult(key, nil, err1, false, offset)
 	}
 	query := fmt.Sprintf("UPDATE %s.%s USING TTL %d WHERE ID = ?", keyspaceName, tableName, extra.Expiry)
+	fmt.Println(query)
 	if err2 := cassandraSessionObj.Query(query, key).Exec(); err2 != nil {
 		return newCassandraOperationResult(key, nil, err2, false, offset)
 	}
@@ -336,14 +390,93 @@ func (c *Cassandra) Touch(connStr, username, password, key string, offset int64,
 
 func (c *Cassandra) InsertSubDoc(connStr, username, password, key string, keyValues []KeyValue, offset int64,
 	extra Extras) SubDocOperationResult {
-	// TODO
-	panic("Implement the function")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
+	}
+	tableName := extra.Table
+	keyspaceName := extra.Keyspace
+	if err := validateStrings(tableName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Table name is missing"), false, extra.Cas, offset)
+	}
+	if err := validateStrings(keyspaceName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Keyspace is missing"), false, extra.Cas, offset)
+	}
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra InsertSubDoc(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
+	}
+	for _, x := range keyValues {
+		columnName := "subDoc"
+		if !cassandraColumnExists(cassandraSession, keyspaceName, tableName, columnName) {
+			alterQuery := fmt.Sprintf("ALTER TABLE %s.%s ADD %s text", keyspaceName, tableName, columnName)
+			fmt.Println(alterQuery)
+			err := cassandraSession.Query(alterQuery).Exec()
+			if err != nil {
+				return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
+			}
+		}
+		insertSubDocQuery := fmt.Sprintf("UPDATE %s SET %s='%s' WHERE ID = ?", tableName, columnName, x.Doc)
+		errinsertSubDocQuery := cassandraSession.Query(insertSubDocQuery, key).Exec()
+		if errinsertSubDocQuery != nil {
+			log.Println("In Cassandra InsertSubDoc(), error inserting data:", errinsertSubDocQuery)
+			return newCouchbaseSubDocOperationResult(key, keyValues, errinsertSubDocQuery, false, extra.Cas, offset)
+		}
+	}
+	return newCassandraSubDocOperationResult(key, keyValues, nil, true, offset)
 }
 
 func (c *Cassandra) UpsertSubDoc(connStr, username, password, key string, keyValues []KeyValue, offset int64,
 	extra Extras) SubDocOperationResult {
-	// TODO
-	panic("Implement the function")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
+	}
+	tableName := extra.Table
+	keyspaceName := extra.Keyspace
+	if err := validateStrings(tableName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Table name is missing"), false, extra.Cas, offset)
+	}
+	if err := validateStrings(keyspaceName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Keyspace is missing"), false, extra.Cas, offset)
+	}
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra UpsertSubDoc(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
+	}
+	for _, x := range keyValues {
+		columnName := "subDoc"
+		if !cassandraColumnExists(cassandraSession, keyspaceName, tableName, columnName) {
+			alterQuery := fmt.Sprintf("ALTER TABLE %s.%s ADD %s text", keyspaceName, tableName, columnName)
+			fmt.Println(alterQuery)
+			err := cassandraSession.Query(alterQuery).Exec()
+			if err != nil {
+				return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
+			}
+		}
+		upsertSubDocQuery := fmt.Sprintf("UPDATE %s SET %s='%s' WHERE ID = ?", tableName, columnName, x.Doc)
+		errupsertSubDocQuery := cassandraSession.Query(upsertSubDocQuery, key).Exec()
+		if errupsertSubDocQuery != nil {
+			log.Println("In Cassandra UpsertSubDoc(), error inserting data:", errupsertSubDocQuery)
+			return newCouchbaseSubDocOperationResult(key, keyValues, errupsertSubDocQuery, false, extra.Cas, offset)
+		}
+		var currentValue float64
+		mutationSubDocQuery := fmt.Sprintf("SELECT mutated FROM %s WHERE ID = ?", tableName)
+		errMutationSubDocQuery := cassandraSession.Query(mutationSubDocQuery, key).Scan(&currentValue)
+		if errMutationSubDocQuery != nil {
+			log.Println("In Cassandra UpsertSubDoc(), error fetching current mutated field:", errMutationSubDocQuery)
+			return newCouchbaseSubDocOperationResult(key, keyValues, errMutationSubDocQuery, false, extra.Cas, offset)
+		}
+		mutationIncSubDocQuery := fmt.Sprintf("UPDATE %s SET %s=%f WHERE ID = ?", tableName, "mutated", currentValue+1)
+		errMutationIncSubDocQuery := cassandraSession.Query(mutationIncSubDocQuery, key).Exec()
+		if errMutationIncSubDocQuery != nil {
+			log.Println("In Cassandra UpsertSubDoc(), error updating mutated field:", errMutationIncSubDocQuery)
+			return newCouchbaseSubDocOperationResult(key, keyValues, errMutationIncSubDocQuery, false, extra.Cas, offset)
+		}
+	}
+	return newCassandraSubDocOperationResult(key, keyValues, nil, true, offset)
 }
 
 func (c *Cassandra) Increment(connStr, username, password, key string, keyValues []KeyValue, offset int64,
@@ -354,20 +487,140 @@ func (c *Cassandra) Increment(connStr, username, password, key string, keyValues
 
 func (c *Cassandra) ReplaceSubDoc(connStr, username, password, key string, keyValues []KeyValue, offset int64,
 	extra Extras) SubDocOperationResult {
-	// TODO
-	panic("Implement the function")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
+	}
+	tableName := extra.Table
+	keyspaceName := extra.Keyspace
+	if err := validateStrings(tableName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Table name is missing"), false, extra.Cas, offset)
+	}
+	if err := validateStrings(keyspaceName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Keyspace is missing"), false, extra.Cas, offset)
+	}
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra ReplaceSubDoc(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
+	}
+	for _, x := range keyValues {
+		columnName := "subDoc"
+		if !cassandraColumnExists(cassandraSession, keyspaceName, tableName, columnName) {
+			alterQuery := fmt.Sprintf("ALTER TABLE %s.%s ADD %s text", keyspaceName, tableName, columnName)
+			err := cassandraSession.Query(alterQuery).Exec()
+			if err != nil {
+				return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
+			}
+		}
+		replaceSubDocQuery := fmt.Sprintf("UPDATE %s SET %s='%s' WHERE ID = ?", tableName, columnName, x.Doc)
+		errreplaceSubDocQuery := cassandraSession.Query(replaceSubDocQuery, key).Exec()
+		if errreplaceSubDocQuery != nil {
+			log.Println("In Cassandra ReplaceSubDoc(), error inserting data:", errreplaceSubDocQuery)
+			return newCouchbaseSubDocOperationResult(key, keyValues, errreplaceSubDocQuery, false, extra.Cas, offset)
+		}
+		var currentValue float64
+		mutationSubDocQuery := fmt.Sprintf("SELECT mutated FROM %s WHERE ID = ?", tableName)
+		errMutationSubDocQuery := cassandraSession.Query(mutationSubDocQuery, key).Scan(&currentValue)
+		if errMutationSubDocQuery != nil {
+			log.Println("In Cassandra ReplaceSubDoc(), error fetching current mutated field:", errMutationSubDocQuery)
+			return newCouchbaseSubDocOperationResult(key, keyValues, errMutationSubDocQuery, false, extra.Cas, offset)
+		}
+		mutationIncSubDocQuery := fmt.Sprintf("UPDATE %s SET %s=%f WHERE ID = ?", tableName, "mutated", currentValue+1)
+		errMutationIncSubDocQuery := cassandraSession.Query(mutationIncSubDocQuery, key).Exec()
+		if errMutationIncSubDocQuery != nil {
+			log.Println("In Cassandra UpsertSubDoc(), error updating mutated field:", errMutationIncSubDocQuery)
+			return newCouchbaseSubDocOperationResult(key, keyValues, errMutationIncSubDocQuery, false, extra.Cas, offset)
+		}
+	}
+	return newCassandraSubDocOperationResult(key, keyValues, nil, true, offset)
 }
 
 func (c *Cassandra) ReadSubDoc(connStr, username, password, key string, keyValues []KeyValue, offset int64,
 	extra Extras) SubDocOperationResult {
-	// TODO
-	panic("Implement the function")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
+	}
+	tableName := extra.Table
+	keyspaceName := extra.Keyspace
+	if err := validateStrings(tableName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Table name is missing"), false, extra.Cas, offset)
+	}
+	if err := validateStrings(keyspaceName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Keyspace is missing"), false, extra.Cas, offset)
+	}
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra ReadSubDoc(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
+	}
+	for range keyValues {
+		columnName := "subdoc"
+		var result map[string]interface{}
+		if !cassandraColumnExists(cassandraSession, keyspaceName, tableName, columnName) {
+			return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("No subdocs field found."), false, extra.Cas, offset)
+		}
+		selectSubDocQuery := fmt.Sprintf("SELECT %s FROM %s WHERE ID = ?", columnName, tableName)
+		iter := cassandraSession.Query(selectSubDocQuery, key).Iter()
+		result = make(map[string]interface{})
+		success := iter.MapScan(result)
+		if !success {
+			if result == nil {
+				return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("No documents found despite successful subdocread."), false, extra.Cas, offset)
+			} else if err := iter.Close(); err != nil {
+				return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Unsuccessful READ operation."), false, extra.Cas, offset)
+			}
+		}
+		if result["subdoc"] == "" {
+			return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("No subdocs found."), false, extra.Cas, offset)
+		}
+	}
+	return newCassandraSubDocOperationResult(key, keyValues, nil, true, offset)
 }
 
 func (c *Cassandra) DeleteSubDoc(connStr, username, password, key string, keyValues []KeyValue, offset int64,
 	extra Extras) SubDocOperationResult {
-	// TODO
-	panic("Implement the function")
+	if err := validateStrings(connStr, username, password); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
+	}
+	tableName := extra.Table
+	keyspaceName := extra.Keyspace
+	if err := validateStrings(tableName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Table name is missing"), false, extra.Cas, offset)
+	}
+	if err := validateStrings(keyspaceName); err != nil {
+		return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("Keyspace is missing"), false, extra.Cas, offset)
+	}
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra DeleteSubDoc(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
+	}
+	for range keyValues {
+		columnName := "subDoc"
+		if !cassandraColumnExists(cassandraSession, keyspaceName, tableName, columnName) {
+			alterQuery := fmt.Sprintf("ALTER TABLE %s.%s ADD %s text", keyspaceName, tableName, columnName)
+			err := cassandraSession.Query(alterQuery).Exec()
+			if err != nil {
+				return newCouchbaseSubDocOperationResult(key, keyValues, err, false, extra.Cas, offset)
+			}
+		}
+		delSubDocQuery := fmt.Sprintf("UPDATE %s SET %s=? WHERE ID = ?", tableName, columnName)
+		errdelSubDocQuery := cassandraSession.Query(delSubDocQuery, nil, key).Exec()
+		if errdelSubDocQuery != nil {
+			log.Println("In Cassandra DeleteSubDoc(), error inserting data:", errdelSubDocQuery)
+			return newCouchbaseSubDocOperationResult(key, keyValues, errdelSubDocQuery, false, extra.Cas, offset)
+		}
+		mutationClearSubDocQuery := fmt.Sprintf("UPDATE %s SET %s=%f WHERE ID = ?", tableName, "mutated", 0.0)
+		errmutationClearSubDocQuery := cassandraSession.Query(mutationClearSubDocQuery, key).Exec()
+		if errmutationClearSubDocQuery != nil {
+			log.Println("In Cassandra DeleteSubDoc(), error updating mutated field:", errmutationClearSubDocQuery)
+			return newCouchbaseSubDocOperationResult(key, keyValues, errmutationClearSubDocQuery, false, extra.Cas, offset)
+		}
+	}
+	return newCassandraSubDocOperationResult(key, keyValues, nil, true, offset)
 }
 
 func (c *Cassandra) CreateBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
@@ -434,18 +687,163 @@ func (c *Cassandra) CreateBulk(connStr, username, password string, keyValues []K
 }
 
 func (c *Cassandra) UpdateBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	// TODO
-	panic("Implement the function")
+	result := newCassandraBulkOperation()
+	if err := validateStrings(connStr, username, password); err != nil {
+		result.failBulk(keyValues, err)
+		return result
+	}
+
+	keyToOffset := make(map[string]int64)
+	for _, x := range keyValues {
+		keyToOffset[x.Key] = x.Offset
+	}
+
+	if err := validateStrings(extra.Keyspace); err != nil {
+		result.failBulk(keyValues, errors.New("Keyspace name is missing"))
+		return result
+	}
+	if err := validateStrings(extra.Table); err != nil {
+		result.failBulk(keyValues, errors.New("Table name is missing"))
+		return result
+	}
+
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra Update(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		result.failBulk(keyValues, errSessionCreate)
+		return result
+	}
+
+	cassBatchOp := cassandraSession.NewBatch(gocql.UnloggedBatch).WithContext(context.TODO())
+	for _, x := range keyValues {
+		// Converting the Document to JSON
+		jsonData, errDocToJSON := json.Marshal(x.Doc)
+		if errDocToJSON != nil {
+			log.Println("In Cassandra Update(), error marshaling JSON:", errDocToJSON)
+		}
+
+		var docL []interface{}
+		//docL = append(docL, reflect.ValueOf(x.Doc).Elem().Interface())
+		docL = append(docL, jsonData)
+		cassBatchOp.Entries = append(cassBatchOp.Entries, gocql.BatchEntry{
+			Stmt:       "INSERT INTO " + extra.Table + " JSON ? DEFAULT UNSET",
+			Args:       docL,
+			Idempotent: true,
+		})
+
+	}
+
+	errBulkUpdate := cassandraSession.ExecuteBatch(cassBatchOp)
+	if errBulkUpdate != nil {
+		log.Println("In Cassandra UpdateBulk(), ExecuteBatch() Error:", errBulkUpdate)
+		result.failBulk(keyValues, errBulkUpdate)
+		return result
+	}
+
+	for _, x := range keyValues {
+		//log.Println("Successfully inserted document with id:", x.Key)
+		result.AddResult(x.Key, nil, nil, true, keyToOffset[x.Key])
+	}
+	return result
 }
 
 func (c *Cassandra) ReadBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	// TODO
-	panic("Implement the function")
+	result := newCassandraBulkOperation()
+	if err := validateStrings(connStr, username, password); err != nil {
+		result.failBulk(keyValues, err)
+		return result
+	}
+
+	keyToOffset := make(map[string]int64)
+	keysToString := "("
+	for _, x := range keyValues {
+		keyToOffset[x.Key] = x.Offset
+		keysToString += "'" + x.Key + "'" + ","
+	}
+	keysToString = keysToString[:len(keysToString)-1] + ")"
+	if err := validateStrings(extra.Keyspace); err != nil {
+		result.failBulk(keyValues, errors.New("Keyspace name is missing"))
+		return result
+	}
+	if err := validateStrings(extra.Table); err != nil {
+		result.failBulk(keyValues, errors.New("Table name is missing"))
+		return result
+	}
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra Read(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		result.failBulk(keyValues, errSessionCreate)
+		return result
+	}
+
+	query := "SELECT * FROM " + extra.Table + " WHERE ID IN " + keysToString
+	iter := cassandraSession.Query(query).Iter()
+	if iter.NumRows() != len(keyValues) {
+		result.failBulk(keyValues, errors.New("Unable to perform Bulk Read"))
+	}
+	for {
+		row := make(map[string]interface{})
+		if !iter.MapScan(row) {
+			break
+		}
+		result.AddResult(row["id"].(string), nil, nil, false, keyToOffset[row["id"].(string)])
+	}
+	return result
 }
 
 func (c *Cassandra) DeleteBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
-	// TODO
-	panic("Implement the function")
+	result := newCassandraBulkOperation()
+	if err := validateStrings(connStr, username, password); err != nil {
+		result.failBulk(keyValues, err)
+		return result
+	}
+
+	keyToOffset := make(map[string]int64)
+	for _, x := range keyValues {
+		keyToOffset[x.Key] = x.Offset
+	}
+
+	if err := validateStrings(extra.Keyspace); err != nil {
+		result.failBulk(keyValues, errors.New("Keyspace name is missing"))
+		return result
+	}
+	if err := validateStrings(extra.Table); err != nil {
+		result.failBulk(keyValues, errors.New("Table name is missing"))
+		return result
+	}
+
+	cassandraSession, errSessionCreate := c.CassandraConnectionManager.GetCassandraKeyspace(connStr, username, password, nil, extra.Keyspace)
+	if errSessionCreate != nil {
+		log.Println("In Cassandra Delete(), unable to connect to Cassandra:")
+		log.Println(errSessionCreate)
+		result.failBulk(keyValues, errSessionCreate)
+		return result
+	}
+
+	cassBatchOp := cassandraSession.NewBatch(gocql.UnloggedBatch).WithContext(context.TODO())
+	for _, x := range keyValues {
+		cassBatchOp.Entries = append(cassBatchOp.Entries, gocql.BatchEntry{
+			Stmt:       "DELETE FROM " + extra.Table + " WHERE ID=?",
+			Args:       []interface{}{x.Key},
+			Idempotent: true,
+		})
+
+	}
+
+	errBulkUpdate := cassandraSession.ExecuteBatch(cassBatchOp)
+	if errBulkUpdate != nil {
+		log.Println("In Cassandra DeleteBulk(), ExecuteBatch() Error:", errBulkUpdate)
+		result.failBulk(keyValues, errBulkUpdate)
+		return result
+	}
+
+	for _, x := range keyValues {
+		//log.Println("Successfully inserted document with id:", x.Key)
+		result.AddResult(x.Key, nil, nil, true, keyToOffset[x.Key])
+	}
+	return result
 }
 
 func (c *Cassandra) TouchBulk(connStr, username, password string, keyValues []KeyValue, extra Extras) BulkOperationResult {
