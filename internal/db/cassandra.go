@@ -715,30 +715,32 @@ func (c *Cassandra) UpdateBulk(connStr, username, password string, keyValues []K
 		return result
 	}
 
-	cassBatchOp := cassandraSession.NewBatch(gocql.UnloggedBatch).WithContext(context.TODO())
 	for _, x := range keyValues {
-		// Converting the Document to JSON
-		jsonData, errDocToJSON := json.Marshal(x.Doc)
-		if errDocToJSON != nil {
-			log.Println("In Cassandra Update(), error marshaling JSON:", errDocToJSON)
+		cassBatchSize := 10
+		cassBatchOp := cassandraSession.NewBatch(gocql.LoggedBatch).WithContext(context.TODO())
+		var docArg []interface{}
+		for i := 0; i < cassBatchSize; i++ {
+			// Converting the Document to JSON
+			jsonData, errDocToJSON := json.Marshal(x.Doc)
+			if errDocToJSON != nil {
+				log.Println("In Cassandra Update(), error marshaling JSON:", errDocToJSON)
+			}
+
+			docArg = append(docArg, jsonData)
+			cassBatchOp.Entries = append(cassBatchOp.Entries, gocql.BatchEntry{
+				Stmt:       "INSERT INTO " + extra.Table + " JSON ? DEFAULT UNSET",
+				Args:       docArg,
+				Idempotent: true,
+			})
+			docArg = nil
 		}
-
-		var docL []interface{}
-		//docL = append(docL, reflect.ValueOf(x.Doc).Elem().Interface())
-		docL = append(docL, jsonData)
-		cassBatchOp.Entries = append(cassBatchOp.Entries, gocql.BatchEntry{
-			Stmt:       "INSERT INTO " + extra.Table + " JSON ? DEFAULT UNSET",
-			Args:       docL,
-			Idempotent: true,
-		})
-
-	}
-
-	errBulkUpdate := cassandraSession.ExecuteBatch(cassBatchOp)
-	if errBulkUpdate != nil {
-		log.Println("In Cassandra UpdateBulk(), ExecuteBatch() Error:", errBulkUpdate)
-		result.failBulk(keyValues, errBulkUpdate)
-		return result
+		errBulkUpsert := cassandraSession.ExecuteBatch(cassBatchOp)
+		if errBulkUpsert != nil {
+			log.Println("In Cassandra CreateBulk(), ExecuteBatch() Error:", errBulkUpsert)
+			result.failBulk(keyValues, errBulkUpsert)
+			return result
+		}
+		cassBatchOp = nil
 	}
 
 	for _, x := range keyValues {
@@ -822,21 +824,23 @@ func (c *Cassandra) DeleteBulk(connStr, username, password string, keyValues []K
 		return result
 	}
 
-	cassBatchOp := cassandraSession.NewBatch(gocql.UnloggedBatch).WithContext(context.TODO())
 	for _, x := range keyValues {
-		cassBatchOp.Entries = append(cassBatchOp.Entries, gocql.BatchEntry{
-			Stmt:       "DELETE FROM " + extra.Table + " WHERE ID=?",
-			Args:       []interface{}{x.Key},
-			Idempotent: true,
-		})
-
-	}
-
-	errBulkUpdate := cassandraSession.ExecuteBatch(cassBatchOp)
-	if errBulkUpdate != nil {
-		log.Println("In Cassandra DeleteBulk(), ExecuteBatch() Error:", errBulkUpdate)
-		result.failBulk(keyValues, errBulkUpdate)
-		return result
+		cassBatchSize := 10
+		cassBatchOp := cassandraSession.NewBatch(gocql.UnloggedBatch).WithContext(context.TODO())
+		for i := 0; i < cassBatchSize; i++ {
+			cassBatchOp.Entries = append(cassBatchOp.Entries, gocql.BatchEntry{
+				Stmt:       "DELETE FROM " + extra.Table + " WHERE ID=?",
+				Args:       []interface{}{x.Key},
+				Idempotent: true,
+			})
+		}
+		errBulkUpdate := cassandraSession.ExecuteBatch(cassBatchOp)
+		if errBulkUpdate != nil {
+			log.Println("In Cassandra DeleteBulk(), ExecuteBatch() Error:", errBulkUpdate)
+			result.failBulk(keyValues, errBulkUpdate)
+			return result
+		}
+		cassBatchOp = nil
 	}
 
 	for _, x := range keyValues {
