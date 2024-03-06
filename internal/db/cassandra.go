@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/barkha06/sirius/internal/sdk_cassandra"
-	"github.com/gocql/gocql"
 	"log"
+
+	"github.com/barkha06/sirius/internal/sdk_cassandra"
+
+	"github.com/gocql/gocql"
 )
 
 type Cassandra struct {
@@ -653,30 +655,33 @@ func (c *Cassandra) CreateBulk(connStr, username, password string, keyValues []K
 		return result
 	}
 
-	cassBatchOp := cassandraSession.NewBatch(gocql.UnloggedBatch).WithContext(context.TODO())
 	for _, x := range keyValues {
-		// Converting the Document to JSON
-		jsonData, errDocToJSON := json.Marshal(x.Doc)
-		if errDocToJSON != nil {
-			log.Println("In Cassandra Update(), error marshaling JSON:", errDocToJSON)
+		cassBatchSize := 10
+		cassBatchOp := cassandraSession.NewBatch(gocql.LoggedBatch).WithContext(context.TODO())
+		var docArg []interface{}
+		for i := 0; i < cassBatchSize; i++ {
+			// Converting the Document to JSON
+			jsonData, errDocToJSON := json.Marshal(x.Doc)
+			if errDocToJSON != nil {
+				log.Println("In Cassandra Update(), error marshaling JSON:", errDocToJSON)
+			}
+
+			docArg = append(docArg, jsonData)
+			cassBatchOp.Entries = append(cassBatchOp.Entries, gocql.BatchEntry{
+				Stmt:       "INSERT INTO " + extra.Table + " JSON ?",
+				Args:       docArg,
+				Idempotent: true,
+			})
+			docArg = nil
 		}
 
-		var docL []interface{}
-		//docL = append(docL, reflect.ValueOf(x.Doc).Elem().Interface())
-		docL = append(docL, jsonData)
-		cassBatchOp.Entries = append(cassBatchOp.Entries, gocql.BatchEntry{
-			Stmt:       "INSERT INTO " + extra.Table + " JSON ?",
-			Args:       docL,
-			Idempotent: true,
-		})
-
-	}
-
-	errBulkInsert := cassandraSession.ExecuteBatch(cassBatchOp)
-	if errBulkInsert != nil {
-		log.Println("In Cassandra CreateBulk(), ExecuteBatch() Error:", errBulkInsert)
-		result.failBulk(keyValues, errBulkInsert)
-		return result
+		errBulkInsert := cassandraSession.ExecuteBatch(cassBatchOp)
+		if errBulkInsert != nil {
+			log.Println("In Cassandra CreateBulk(), ExecuteBatch() Error:", errBulkInsert)
+			result.failBulk(keyValues, errBulkInsert)
+			return result
+		}
+		cassBatchOp = nil
 	}
 
 	for _, x := range keyValues {
