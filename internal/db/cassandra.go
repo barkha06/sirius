@@ -723,7 +723,7 @@ func (c *Cassandra) UpdateBulk(connStr, username, password string, keyValues []K
 			// Converting the Document to JSON
 			jsonData, errDocToJSON := json.Marshal(x.Doc)
 			if errDocToJSON != nil {
-				log.Println("In Cassandra Update(), error marshaling JSON:", errDocToJSON)
+				log.Println("In Cassandra UpdateBulk(), error marshaling JSON:", errDocToJSON)
 			}
 
 			docArg = append(docArg, jsonData)
@@ -736,7 +736,7 @@ func (c *Cassandra) UpdateBulk(connStr, username, password string, keyValues []K
 		}
 		errBulkUpsert := cassandraSession.ExecuteBatch(cassBatchOp)
 		if errBulkUpsert != nil {
-			log.Println("In Cassandra CreateBulk(), ExecuteBatch() Error:", errBulkUpsert)
+			log.Println("In Cassandra UpdateBulk(), ExecuteBatch() Error:", errBulkUpsert)
 			result.failBulk(keyValues, errBulkUpsert)
 			return result
 		}
