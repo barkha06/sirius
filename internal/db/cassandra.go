@@ -408,7 +408,10 @@ func (c *Cassandra) InsertSubDoc(connStr, username, password, key string, keyVal
 		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
 	}
 	for _, x := range keyValues {
-		columnName := "subDoc"
+		columnName := extra.SubDocPath
+		if err := validateStrings(columnName); err != nil {
+			return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("SubDocPath is missing"), false, extra.Cas, offset)
+		}
 		if !cassandraColumnExists(cassandraSession, keyspaceName, tableName, columnName) {
 			alterQuery := fmt.Sprintf("ALTER TABLE %s.%s ADD %s text", keyspaceName, tableName, columnName)
 			fmt.Println(alterQuery)
@@ -447,7 +450,10 @@ func (c *Cassandra) UpsertSubDoc(connStr, username, password, key string, keyVal
 		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
 	}
 	for _, x := range keyValues {
-		columnName := "subDoc"
+		columnName := extra.SubDocPath
+		if err := validateStrings(columnName); err != nil {
+			return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("SubDocPath is missing"), false, extra.Cas, offset)
+		}
 		if !cassandraColumnExists(cassandraSession, keyspaceName, tableName, columnName) {
 			alterQuery := fmt.Sprintf("ALTER TABLE %s.%s ADD %s text", keyspaceName, tableName, columnName)
 			fmt.Println(alterQuery)
@@ -505,7 +511,10 @@ func (c *Cassandra) ReplaceSubDoc(connStr, username, password, key string, keyVa
 		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
 	}
 	for _, x := range keyValues {
-		columnName := "subDoc"
+		columnName := extra.SubDocPath
+		if err := validateStrings(columnName); err != nil {
+			return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("SubDocPath is missing"), false, extra.Cas, offset)
+		}
 		if !cassandraColumnExists(cassandraSession, keyspaceName, tableName, columnName) {
 			alterQuery := fmt.Sprintf("ALTER TABLE %s.%s ADD %s text", keyspaceName, tableName, columnName)
 			err := cassandraSession.Query(alterQuery).Exec()
@@ -556,7 +565,10 @@ func (c *Cassandra) ReadSubDoc(connStr, username, password, key string, keyValue
 		return newCouchbaseSubDocOperationResult(key, keyValues, errSessionCreate, false, extra.Cas, offset)
 	}
 	for range keyValues {
-		columnName := "subdoc"
+		columnName := extra.SubDocPath
+		if err := validateStrings(columnName); err != nil {
+			return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("SubDocPath is missing"), false, extra.Cas, offset)
+		}
 		var result map[string]interface{}
 		if !cassandraColumnExists(cassandraSession, keyspaceName, tableName, columnName) {
 			return newCouchbaseSubDocOperationResult(key, keyValues, errors.New("No subdocs field found."), false, extra.Cas, offset)
