@@ -934,7 +934,7 @@ func validateDocuments(start, end, seed int64, operationConfig *OperationConfig,
 				} else {
 					res, _ := gen.Template.Compare(bulkResult.Value(x.Key), resultDisplay)
 					if !res {
-						result.IncrementFailure(initTime, x.Key, errors.New("Template Compare Failed  Mongo: "+x.Key+"   columnar:  "+resultDisplay["_id"].(string)), false, bulkResult.GetExtra(x.Key),
+						result.IncrementFailure(initTime, x.Key, errors.New("Template Compare Failed "+databaseInfo.DBType+": "+x.Key+" | columnar:  "+resultDisplay["_id"].(string)), false, bulkResult.GetExtra(x.Key),
 							x.Offset)
 						state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
 					} else {
@@ -944,5 +944,4 @@ func validateDocuments(start, end, seed int64, operationConfig *OperationConfig,
 			}
 		}
 	}
-
 }

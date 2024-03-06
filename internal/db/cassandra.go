@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/barkha06/sirius/internal/sdk_cassandra"
-	"github.com/gocql/gocql"
 	"log"
+
+	"github.com/barkha06/sirius/internal/sdk_cassandra"
+
+	"github.com/gocql/gocql"
 )
 
 type Cassandra struct {
