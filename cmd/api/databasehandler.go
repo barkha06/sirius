@@ -2,10 +2,15 @@ package main
 
 import (
 	"context"
+	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/barkha06/sirius/internal/tasks"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -14,6 +19,7 @@ const (
 	CouchbaseDb       = "couchbase"
 	MongoDb           = "mongodb"
 	CouchbaseColumnar = "columnar"
+	DynamoDb          = "dynamodb"
 )
 
 func createDBOp(task *tasks.GenericLoadingTask) (string, bool) {
@@ -48,6 +54,51 @@ func createDBOp(task *tasks.GenericLoadingTask) (string, bool) {
 		return "", false
 	case CouchbaseColumnar:
 		return "", false
+	case DynamoDb:
+		cfg, err := config.LoadDefaultConfig(context.TODO(),
+			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(task.Username, task.Password, "")),
+			config.WithRegion(task.ConnStr))
+		if err != nil {
+			resultString = err.Error()
+		} else if task.Extra.Table == "" {
+			resultString = "Empty Table name"
+		} else {
+			dynamoDbClient := dynamodb.NewFromConfig(cfg)
+			var dynamoInput dynamodb.CreateTableInput
+			dynamoInput.AttributeDefinitions = []types.AttributeDefinition{{
+				AttributeName: aws.String("ID"),
+				AttributeType: types.ScalarAttributeTypeS,
+			}}
+			dynamoInput.KeySchema = []types.KeySchemaElement{{
+				AttributeName: aws.String("ID"),
+				KeyType:       types.KeyTypeHash,
+			}}
+			dynamoInput.TableName = aws.String(task.Extra.Table)
+			if task.Extra.Provisioned {
+				dynamoInput.BillingMode = types.BillingModeProvisioned
+				dynamoInput.ProvisionedThroughput = &types.ProvisionedThroughput{
+					ReadCapacityUnits:  aws.Int64(int64(task.Extra.ReadCapacity)),
+					WriteCapacityUnits: aws.Int64(int64(task.Extra.WriteCapacity)),
+				}
+			} else {
+				dynamoInput.BillingMode = types.BillingModePayPerRequest
+			}
+			table, err := dynamoDbClient.CreateTable(context.TODO(), &dynamoInput)
+			if err != nil {
+				resultString = err.Error()
+			} else {
+				waiter := dynamodb.NewTableExistsWaiter(dynamoDbClient)
+				err = waiter.Wait(context.TODO(), &dynamodb.DescribeTableInput{
+					TableName: aws.String(task.Extra.Table)}, 5*time.Minute)
+				if err != nil {
+					resultString = err.Error()
+				} else {
+					status = true
+					resultString = "Table successfully created at " + table.TableDescription.CreationDateTime.GoString()
+				}
+			}
+		}
+
 	}
 	return resultString, status
 }
@@ -89,6 +140,24 @@ func deleteDBOp(task *tasks.GenericLoadingTask) (string, bool) {
 		return "", false
 	case CouchbaseColumnar:
 		return "", false
+	case DynamoDb:
+		cfg, err := config.LoadDefaultConfig(context.TODO(),
+			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(task.Username, task.Password, "")),
+			config.WithRegion(task.ConnStr))
+		if err != nil {
+			resultString = err.Error()
+		} else if task.Extra.Table == "" {
+			resultString = "Empty Table name"
+		} else {
+			dynamoDbClient := dynamodb.NewFromConfig(cfg)
+			del, err := dynamoDbClient.DeleteTable(context.TODO(), &dynamodb.DeleteTableInput{
+				TableName: aws.String(task.Extra.Table)})
+			if err != nil {
+				resultString = err.Error()
+			} else {
+				resultString = "Successful deletion : " + *del.TableDescription.TableName
+			}
+		}
 	}
 	return resultString, status
 
@@ -126,6 +195,28 @@ func ListDBOp(task *tasks.GenericLoadingTask) (any, bool) {
 		return "", false
 	case CouchbaseColumnar:
 		return "", false
+	case DynamoDb:
+		dblist_new := []string{}
+		cfg, err := config.LoadDefaultConfig(context.TODO(),
+			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(task.Username, task.Password, "")),
+			config.WithRegion(task.ConnStr))
+		if err != nil {
+			resultString = err.Error()
+		} else {
+			dynamoDbClient := dynamodb.NewFromConfig(cfg)
+			tablePaginator := dynamodb.NewListTablesPaginator(dynamoDbClient, &dynamodb.ListTablesInput{})
+			for tablePaginator.HasMorePages() {
+				output, err := tablePaginator.NextPage(context.TODO())
+				if err != nil {
+					resultString = err.Error()
+				} else {
+					status = true
+					dblist_new = append(dblist_new, output.TableNames...)
+				}
+			}
+			dblist[task.ConnStr] = dblist_new
+		}
+
 	}
 	if !status && dblist == nil {
 		if resultString == "" {
@@ -159,8 +250,6 @@ func CountOp(task *tasks.GenericLoadingTask) (string, int64, bool) {
 				if col == nil {
 					resultString = "Collection Not Found   : " + task.Extra.Collection
 				} else {
-					status = true
-					resultString = "Collection Creation Successful : " + task.Extra.Database + "  /  " + task.Extra.Collection
 					count, err = col.CountDocuments(context.TODO(), bson.D{})
 					if err != nil {
 						resultString = err.Error()
@@ -179,6 +268,36 @@ func CountOp(task *tasks.GenericLoadingTask) (string, int64, bool) {
 		return "", count, false
 	case CouchbaseColumnar:
 		return "", count, false
+	case DynamoDb:
+		cfg, err := config.LoadDefaultConfig(context.TODO(),
+			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(task.Username, task.Password, "")),
+			config.WithRegion(task.ConnStr))
+		if err != nil {
+			resultString = err.Error()
+		} else if task.Extra.Table == "" {
+			resultString = "Empty Table name"
+		} else {
+			dynamoDbClient := dynamodb.NewFromConfig(cfg)
+			input := &dynamodb.ScanInput{
+				TableName: aws.String(task.Extra.Table),
+				Select:    types.SelectCount,
+			}
+
+			result, err := dynamoDbClient.Scan(context.TODO(), input)
+			if err != nil {
+				resultString = err.Error()
+			} else {
+				count = int64(result.Count)
+				if count <= 0 {
+					resultString = "Empty Collection"
+					status = true
+				} else {
+					resultString = "Successfully Counted Documents"
+					status = true
+				}
+			}
+		}
 	}
 	return resultString, count, status
+
 }

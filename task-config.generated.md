@@ -324,6 +324,13 @@ Description : Warming up a connection to database.
 | `ConnStr` | `string` | `json:connstr,omitempty`  |
 | `Username` | `string` | `json:username,omitempty`  |
 | `Password` | `string` | `json:password,omitempty`  |
+| `ColumnarBucket` | `string` | `json:columnarBucket,omitempty`  |
+| `ColumnarScope` | `string` | `json:columnarScope,omitempty`  |
+| `ColumnarCollection` | `string` | `json:columnarCollection,omitempty`  |
+| `Table` | `string` | `json:table,omitempty`  |
+| `Provisioned` | `bool` | `json:provisioned,omitempty`  |
+| `ReadCapacity` | `int` | `json:readCapacity,omitempty`  |
+| `WriteCapacity` | `int` | `json:writeCapacity,omitempty`  |
 
 ---
 Possible values for durability :-

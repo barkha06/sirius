@@ -13,13 +13,13 @@ import (
 )
 
 type DynamoConnectionManager struct {
-	clusters map[string]*DynamoClusterObject
+	Clusters map[string]*DynamoClusterObject
 	lock     sync.Mutex
 }
 
 func ConfigConnectionManager() *DynamoConnectionManager {
 	return &DynamoConnectionManager{
-		clusters: make(map[string]*DynamoClusterObject),
+		Clusters: make(map[string]*DynamoClusterObject),
 		lock:     sync.Mutex{},
 	}
 }
@@ -27,13 +27,13 @@ func ConfigConnectionManager() *DynamoConnectionManager {
 func (cm *DynamoConnectionManager) DisconnectAll() {
 	defer cm.lock.Unlock()
 	cm.lock.Lock()
-	for cS := range cm.clusters {
-		delete(cm.clusters, cS)
+	for cS := range cm.Clusters {
+		delete(cm.Clusters, cS)
 	}
 }
 
 func (cm *DynamoConnectionManager) setClientObject(clusterIdentifier string, c *DynamoClusterObject) {
-	cm.clusters[clusterIdentifier] = c
+	cm.Clusters[clusterIdentifier] = c
 }
 
 func (cm *DynamoConnectionManager) getDynamoDBObject(clusterConfig *DynamoClusterConfig) (*DynamoClusterObject, error) {
@@ -42,7 +42,7 @@ func (cm *DynamoConnectionManager) getDynamoDBObject(clusterConfig *DynamoCluste
 	}
 
 	clusterIdentifier := clusterConfig.Region
-	_, ok := cm.clusters[clusterIdentifier]
+	_, ok := cm.Clusters[clusterIdentifier]
 	if !ok {
 		if err := ValidateClusterConfig(clusterConfig.AccessKey, clusterConfig.SecretKeyId, clusterConfig.Region, clusterConfig); err != nil {
 			return nil, err
@@ -60,7 +60,7 @@ func (cm *DynamoConnectionManager) getDynamoDBObject(clusterConfig *DynamoCluste
 		clusterObject := &DynamoClusterObject{DynamoClusterClient: client, Table: ""}
 		cm.setClientObject(clusterIdentifier, clusterObject)
 	}
-	return cm.clusters[clusterIdentifier], nil
+	return cm.Clusters[clusterIdentifier], nil
 }
 
 func (cm *DynamoConnectionManager) GetCluster(clusterConfig *DynamoClusterConfig) (*DynamoClusterObject, error) {

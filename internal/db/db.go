@@ -10,6 +10,7 @@ const (
 	CouchbaseDb       = "couchbase"
 	MongoDb           = "mongodb"
 	CouchbaseColumnar = "columnar"
+	DynamoDb          = "dynamodb"
 )
 
 type OperationResult interface {
@@ -64,6 +65,7 @@ type Database interface {
 var couchbase *Couchbase
 var mongodb *Mongo
 var cbcolumnar *Columnar
+var dynamo *Dynamo
 
 var lock = &sync.Mutex{}
 
@@ -96,6 +98,15 @@ func ConfigDatabase(dbType string) (Database, error) {
 			}
 		}
 		return cbcolumnar, nil
+	case DynamoDb:
+		if dynamo == nil {
+			lock.Lock()
+			defer lock.Unlock()
+			if dynamo == nil {
+				dynamo = NewDynamoConnectionManager()
+			}
+		}
+		return dynamo, nil
 	default:
 		return nil, err_sirius.InvalidDatabase
 	}

@@ -677,7 +677,7 @@ func (m Mongo) CreateBulk(connStr, username, password string, keyValues []KeyVal
 
 	mongoBulkWriteResult, err := mongoCollection.BulkWrite(context.TODO(), models, opts)
 	if err != nil {
-		log.Println("In MongoDB CreateBulk(), BulkWrite() Error:", err)
+		// log.Println("In MongoDB CreateBulk(), BulkWrite() Error:", err)
 		result.failBulk(keyValues, err)
 		return result
 	} else if int64(len(keyValues)) != mongoBulkWriteResult.InsertedCount {

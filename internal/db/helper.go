@@ -38,6 +38,13 @@ type Extras struct {
 	ConnStr             string  `json:"connstr,omitempty" doc:"true"`
 	Username            string  `json:"username,omitempty" doc:"true"`
 	Password            string  `json:"password,omitempty" doc:"true"`
+	ColumnarBucket      string  `json:"columnarBucket,omitempty" doc:"true"`
+	ColumnarScope       string  `json:"columnarScope,omitempty" doc:"true"`
+	ColumnarCollection  string  `json:"columnarCollection,omitempty" doc:"true"`
+	Table               string  `json:"table,omitempty" doc:"true"`
+	Provisioned         bool    `json:"provisioned,omitempty" doc:"true"`
+	ReadCapacity        int     `json:"readCapacity,omitempty" doc:"true"`
+	WriteCapacity       int     `json:"writeCapacity,omitempty" doc:"true"`
 }
 
 func validateStrings(values ...string) error {
