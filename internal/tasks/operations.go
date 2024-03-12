@@ -732,7 +732,8 @@ func bulkDeleteDocuments(start, end, seed int64, operationConfig *OperationConfi
 		key := offset + seed
 		docId := gen.BuildKey(key)
 		keyValues = append(keyValues, db.KeyValue{
-			Key: docId,
+			Key:    docId,
+			Offset: offset,
 		})
 	}
 
@@ -786,7 +787,8 @@ func bulkReadDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		key := offset + seed
 		docId := gen.BuildKey(key)
 		keyValues = append(keyValues, db.KeyValue{
-			Key: docId,
+			Key:    docId,
+			Offset: offset,
 		})
 	}
 
@@ -901,9 +903,12 @@ func validateDocuments(start, end, seed int64, operationConfig *OperationConfig,
 	}
 	_ = conn2.Warmup(extra.ConnStr, extra.Username, extra.Password, extra)
 	cbCluster := conn2.ConnectionManager.Clusters[extra.ConnStr].Cluster
-	query := "SELECT * from `mongo`.`scope`.`TestCollectionSirius2s` where id IN $ids order by id asc;"
+	query := "SELECT * from `$bucket`.`$scope`.`$collection` where id IN $ids order by id asc;"
 	params := map[string]interface{}{
-		"ids": docIDs,
+		"ids":        docIDs,
+		"bucket":     extra.ColumnarBucket,
+		"scope":      extra.ColumnarScope,
+		"collection": extra.ColumnarCollection,
 	}
 	initTime := time.Now().UTC().Format(time.RFC850)
 	cbresult, errAnalyticsQuery := cbCluster.AnalyticsQuery(query, &gocb.AnalyticsOptions{NamedParameters: params})

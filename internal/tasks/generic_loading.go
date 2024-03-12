@@ -181,12 +181,14 @@ func loadDocumentsInBatches(task *GenericLoadingTask) {
 
 	// default batch size is calculated by dividing the total operations in equal quantity to each thread.
 	batchSize := int64(5000)
-
+	if task.DBType == "dynamodb" {
+		task.Extra.SDKBatchSize = 25
+	}
 	// if we are using sdk Batching call, then fetch the batch size from extras.
 	// current default value of a batch for SDK batching is 100 but will be picked from os.env
 	//if CheckBulkOperation(task.Operation) {
 	if task.Extra.SDKBatchSize > 0 {
-		batchSize = (task.OperationConfig.End - task.OperationConfig.Start) / int64(task.Extra.SDKBatchSize)
+		batchSize = int64(task.Extra.SDKBatchSize)
 	} else {
 		envBatchSize := os.Getenv("sirius_sdk_batch_size")
 		if len(envBatchSize) == 0 {
@@ -210,6 +212,9 @@ func loadDocumentsInBatches(task *GenericLoadingTask) {
 
 	t1 := time.Now()
 	for i := int64(0); i < numOfBatches; i++ {
+		// if task.DBType == "dynamodb" && i > 0 && i%1000 == 0 {
+		// 	time.Sleep(1000 * time.Millisecond)
+		// }
 		batchStart := i * batchSize
 		batchEnd := (i + 1) * batchSize
 		t := newLoadingTask(batchStart+task.OperationConfig.Start,

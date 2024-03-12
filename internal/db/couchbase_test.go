@@ -78,7 +78,6 @@ func TestCouchbase(t *testing.T) {
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
 		doc := g.Template.GenerateDocument(fake, docId, 10)
-
 		x := db.Update(connStr, username, password, KeyValue{
 			Key:    docId,
 			Doc:    doc,

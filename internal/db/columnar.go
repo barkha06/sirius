@@ -1,7 +1,6 @@
 package db
 
 import (
-
 	"log"
 
 	"github.com/couchbase/gocb/v2"
@@ -93,7 +92,7 @@ func (c *Columnar) Warmup(connStr, username, password string, extra Extras) erro
 		log.Print("In Columnar Warmup(), error while pinging:", errPing)
 		return errPing
 	}
-  
+
 	for service, pingReports := range pingRes.Services {
 		if service != gocb.ServiceTypeAnalytics {
 			log.Println("We got a service type that we didn't ask for!")

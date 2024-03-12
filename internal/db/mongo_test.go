@@ -97,12 +97,13 @@ func TestMongoDB(t *testing.T) {
 		}
 	}
 
-	// Updating Documents into MongoDB
+	//Upserting Documents into MongoDB
 	for i := int64(0); i < int64(10); i++ {
 		key := i + cm1.Seed
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
+
 		doc := g.Template.GenerateDocument(fake, docId, 1024) // Original Doc
 		doc = g.Template.GenerateDocument(fake, docId, 1024)  // 1 Time Mutated Doc
 		//log.Println(docId, doc)
@@ -146,9 +147,40 @@ func TestMongoDB(t *testing.T) {
 		}
 	}
 
-	// TODO Reading Documents into MongoDB
-
-	// TODO Bulk Reading Documents into MongoDB
+	//  Reading Documents into MongoDB
+	for i := int64(0); i < int64(50); i++ {
+		key := i + cm1.Seed
+		docId := gen.BuildKey(key)
+		createResult := db.Read(connStr, username, password, docId, i, Extras{
+			Database:   "TestMongoDatabase",
+			Collection: "TestingMongoSirius",
+		})
+		if createResult.GetError() != nil {
+			t.Error(createResult.GetError())
+		} else {
+			log.Println("Inserting", createResult.Key(), " ", createResult.Value())
+		}
+	}
+	//  Bulk Reading Documents into MongoDB
+	keyValues = nil
+	for i := int64(0); i < int64(50); i++ {
+		key := i + cm1.Seed
+		docId := gen.BuildKey(key)
+		keyValues = append(keyValues, KeyValue{
+			Key: docId,
+		})
+	}
+	readBulkResult := db.ReadBulk(connStr, username, password, keyValues, Extras{
+		Database:   "TestMongoDatabase",
+		Collection: "TestingMongoSirius",
+	})
+	for _, i := range keyValues {
+		if readBulkResult.GetError(i.Key) != nil {
+			t.Error(updateBulkResult.GetError(i.Key))
+		} else {
+			log.Println("Bulk Read, Inserted Key:", i.Key, "| Value:", readBulkResult.Value(i.Key))
+		}
+	}
 
 	// Deleting Documents from MongoDB
 	for i := int64(40); i < int64(50); i++ {
