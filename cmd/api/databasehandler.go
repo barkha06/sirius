@@ -4,21 +4,20 @@ import (
 	"context"
 	"time"
 
+	"fmt"
+	"log"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/barkha06/sirius/internal/tasks"
-	"fmt"
-	"log"
 
 	"github.com/gocql/gocql"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-
-	"github.com/barkha06/sirius/internal/tasks"
 )
 
 const (
@@ -260,7 +259,7 @@ func deleteDBOp(task *tasks.GenericLoadingTask) (string, bool) {
 	case CouchbaseDb:
 		return "To be implemented for Couchbase", false
 	case CouchbaseColumnar:
-    return "To be implemented for Columnar", false
+		return "To be implemented for Columnar", false
 	case DynamoDb:
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
 			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(task.Username, task.Password, "")),
@@ -278,7 +277,8 @@ func deleteDBOp(task *tasks.GenericLoadingTask) (string, bool) {
 			} else {
 				resultString = "Successful deletion : " + *del.TableDescription.TableName
 			}
-		
+		}
+
 	case CassandraDb:
 		if task.ConnStr == "" || task.Password == "" || task.Username == "" {
 			resultString = "Connection String or Auth Params Empty"
@@ -391,7 +391,7 @@ func ListDBOp(task *tasks.GenericLoadingTask) (any, bool) {
 			}
 			dblist[task.ConnStr] = dblist_new
 		}
-		
+
 	case CassandraDb:
 		if task.ConnStr == "" || task.Password == "" || task.Username == "" {
 			resultString = "Connection String or Auth Params Empty"
@@ -550,7 +550,7 @@ func CountOp(task *tasks.GenericLoadingTask) (string, int64, bool) {
 				status = true
 			}
 		}
-		
+
 	case CassandraDb:
 		if task.ConnStr == "" || task.Password == "" || task.Username == "" {
 			resultString = "Connection String or Auth Params Empty"

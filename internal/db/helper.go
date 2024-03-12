@@ -2,9 +2,10 @@ package db
 
 import (
 	"fmt"
-	"github.com/gocql/gocql"
 	"log"
 	"strings"
+
+	"github.com/gocql/gocql"
 
 	"github.com/barkha06/sirius/internal/err_sirius"
 )
@@ -44,7 +45,6 @@ type Extras struct {
 	ColumnarBucket      string  `json:"columnarBucket,omitempty" doc:"true"`
 	ColumnarScope       string  `json:"columnarScope,omitempty" doc:"true"`
 	ColumnarCollection  string  `json:"columnarCollection,omitempty" doc:"true"`
-	Table               string  `json:"table,omitempty" doc:"true"`
 	Provisioned         bool    `json:"provisioned,omitempty" doc:"true"`
 	ReadCapacity        int     `json:"readCapacity,omitempty" doc:"true"`
 	WriteCapacity       int     `json:"writeCapacity,omitempty" doc:"true"`
