@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"strconv"
 	"time"
 
@@ -412,7 +413,7 @@ func (d Dynamo) CreateBulk(connStr, username, password string, keyValues []KeyVa
 	DynamoDbClient := d.connectionManager.Clusters[connStr].DynamoClusterClient
 
 	keyToOffset := make(map[string]int64)
-
+	retries := 0.0
 	var writeReqs []types.WriteRequest
 	for _, x := range keyValues {
 		keyToOffset[x.Key] = x.Offset
@@ -433,14 +434,18 @@ func (d Dynamo) CreateBulk(connStr, username, password string, keyValues []KeyVa
 		RequestItems: map[string][]types.WriteRequest{extra.Table: writeReqs}}
 	for {
 		dynamoBulkWriteResult, err = DynamoDbClient.BatchWriteItem(context.TODO(), input)
+		timeout := int(math.Pow(2, retries)-1) * 100
 		if err != nil {
+			time.Sleep(time.Duration(timeout) * time.Millisecond)
 			continue
 		}
 		if dynamoBulkWriteResult != nil && dynamoBulkWriteResult.UnprocessedItems != nil && len(dynamoBulkWriteResult.UnprocessedItems) > 0 {
+			time.Sleep(time.Duration(timeout) * time.Millisecond)
 			input.RequestItems = dynamoBulkWriteResult.UnprocessedItems
 		} else {
 			break
 		}
+		retries += 1
 	}
 	var failed map[string]bool
 	var fail map[string]interface{}

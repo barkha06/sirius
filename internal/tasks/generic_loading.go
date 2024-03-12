@@ -212,9 +212,9 @@ func loadDocumentsInBatches(task *GenericLoadingTask) {
 
 	t1 := time.Now()
 	for i := int64(0); i < numOfBatches; i++ {
-		if task.DBType == "dynamodb" && i > 0 && i%1000 == 0 {
-			time.Sleep(2500 * time.Millisecond)
-		}
+		// if task.DBType == "dynamodb" && i > 0 && i%1000 == 0 {
+		// 	time.Sleep(1000 * time.Millisecond)
+		// }
 		batchStart := i * batchSize
 		batchEnd := (i + 1) * batchSize
 		t := newLoadingTask(batchStart+task.OperationConfig.Start,

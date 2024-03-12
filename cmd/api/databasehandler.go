@@ -282,19 +282,26 @@ func CountOp(task *tasks.GenericLoadingTask) (string, int64, bool) {
 				TableName: aws.String(task.Extra.Table),
 				Select:    types.SelectCount,
 			}
-
 			result, err := dynamoDbClient.Scan(context.TODO(), input)
 			if err != nil {
-				resultString = err.Error()
-			} else {
-				count = int64(result.Count)
-				if count <= 0 {
-					resultString = "Empty Collection"
-					status = true
-				} else {
-					resultString = "Successfully Counted Documents"
-					status = true
+				return err.Error(), -1, false
+			}
+			count += int64(result.Count)
+			for result.LastEvaluatedKey != nil && len(result.LastEvaluatedKey) != 0 {
+				input.ExclusiveStartKey = result.LastEvaluatedKey
+				result, err = dynamoDbClient.Scan(context.TODO(), input)
+				if err != nil {
+					return err.Error(), -1, false
 				}
+				count += int64(result.Count)
+			}
+
+			if count <= 0 {
+				resultString = "Empty Collection"
+				status = true
+			} else {
+				resultString = "Successfully Counted Documents"
+				status = true
 			}
 		}
 	}
