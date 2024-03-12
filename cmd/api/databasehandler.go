@@ -10,9 +10,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/barkha06/sirius/internal/tasks"
+	"fmt"
+	"log"
+
+	"github.com/gocql/gocql"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/barkha06/sirius/internal/tasks"
 )
 
 const (
@@ -20,6 +26,7 @@ const (
 	MongoDb           = "mongodb"
 	CouchbaseColumnar = "columnar"
 	DynamoDb          = "dynamodb"
+	CassandraDb       = "cassandra"
 )
 
 func createDBOp(task *tasks.GenericLoadingTask) (string, bool) {
@@ -51,9 +58,9 @@ func createDBOp(task *tasks.GenericLoadingTask) (string, bool) {
 		}
 		mongoClient.Disconnect(context.TODO())
 	case CouchbaseDb:
-		return "", false
+		return "To be implemented for Couchbase", false
 	case CouchbaseColumnar:
-		return "", false
+		return "To be implemented for Columnar", false
 	case DynamoDb:
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
 			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(task.Username, task.Password, "")),
@@ -99,12 +106,126 @@ func createDBOp(task *tasks.GenericLoadingTask) (string, bool) {
 			}
 		}
 
+	case CassandraDb:
+		if task.ConnStr == "" || task.Password == "" || task.Username == "" {
+			resultString = "Connection String or Auth Params Empty"
+			break
+		}
+		if task.Extra.Keyspace == "" {
+			resultString = "Keyspace name not provided"
+			break
+		} else if task.Extra.Keyspace != "" && task.Extra.Table == "" {
+			// Creating a new Keyspace
+			cassClusterConfig := gocql.NewCluster(task.ConnStr)
+			cassClusterConfig.Authenticator = gocql.PasswordAuthenticator{Username: task.Username, Password: task.Password}
+
+			cassandraSession, errCreateSession := cassClusterConfig.CreateSession()
+			if errCreateSession != nil {
+				log.Println("Unable to connect to Cassandra! err:", errCreateSession.Error())
+				resultString += "Unable to connect to Cassandra! err:" + errCreateSession.Error()
+				break
+			}
+			defer cassandraSession.Close()
+
+			createKeyspaceQuery := fmt.Sprintf(`
+							CREATE KEYSPACE IF NOT EXISTS %s 
+							WITH replication = {
+								'class': '%s', 
+								'replication_factor': %v
+							};`, task.Extra.Keyspace, task.Extra.CassandraClass, task.Extra.ReplicationFactor)
+			errCreateKeyspace := cassandraSession.Query(createKeyspaceQuery).Exec()
+			if errCreateKeyspace != nil {
+				log.Println("unable to create keyspace", errCreateKeyspace)
+				resultString += errCreateKeyspace.Error()
+				break
+			}
+			resultString += fmt.Sprintf("Keyspace '%s' created successfully.", task.Extra.Keyspace)
+			status = true
+			break
+		} else if task.Extra.Keyspace != "" && task.Extra.Table != "" {
+			// Creating a new Table. Need to have Template
+			if task.OperationConfig.TemplateName == "" {
+				resultString += "Template name is not provided. Cannot proceed to create a Table in Cassandra."
+				break
+			}
+
+			cassClusterConfig := gocql.NewCluster(task.ConnStr)
+			cassClusterConfig.Authenticator = gocql.PasswordAuthenticator{Username: task.Username, Password: task.Password}
+			cassClusterConfig.Keyspace = task.Extra.Keyspace
+			cassandraSession, errCreateSession := cassClusterConfig.CreateSession()
+			if errCreateSession != nil {
+				log.Println("Unable to connect to Cassandra! err:", errCreateSession.Error())
+				resultString += "Unable to connect to Cassandra! err:" + errCreateSession.Error()
+				break
+			}
+			defer cassandraSession.Close()
+
+			switch task.OperationConfig.TemplateName {
+			case "hotel":
+				udtRatingQuery := `CREATE TYPE rating (
+									rating_value DOUBLE,
+									cleanliness DOUBLE,
+									overall DOUBLE, 
+									checkin DOUBLE,  
+									rooms DOUBLE
+								);`
+				udtReviewQuery := `CREATE TYPE review (
+									date TEXT,
+									author TEXT,
+									rating frozen <rating>
+								);`
+				createTableQuery := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+									id TEXT PRIMARY KEY,
+									country TEXT,
+									address TEXT,
+									free_parking BOOLEAN,
+									city TEXT,
+									template_type TEXT,
+									url TEXT,
+									reviews LIST<frozen <review>>,
+									phone TEXT,
+									price DOUBLE,
+									avg_rating DOUBLE,
+									free_breakfast BOOLEAN,
+									name TEXT,
+									public_likes LIST<TEXT>,
+									email TEXT,
+									mutated DOUBLE,
+									padding TEXT
+								);`, task.Extra.Table)
+
+				errUDT := cassandraSession.Query(udtRatingQuery).Exec()
+				if errUDT != nil {
+					log.Println("unable to create type Rating. err:", errUDT)
+					resultString += errUDT.Error()
+					break
+				}
+				errUDT = cassandraSession.Query(udtReviewQuery).Exec()
+				if errUDT != nil {
+					log.Println("unable to create type Review. err:", errUDT)
+					resultString += errUDT.Error()
+					break
+				}
+				errCreateTable := cassandraSession.Query(createTableQuery).Exec()
+				if errCreateTable != nil {
+					log.Println("unable to create table. err:", errCreateTable)
+					resultString += errCreateTable.Error()
+					break
+				}
+
+				resultString += fmt.Sprintf("Table ' %s ' created successfully in Keyspace ' %s '.", task.Extra.Table, task.Extra.Keyspace)
+				status = true
+			default:
+				resultString = "Template does not exist. Wrong template name has been provided."
+			}
+		}
 	}
 	return resultString, status
 }
 func deleteDBOp(task *tasks.GenericLoadingTask) (string, bool) {
 	status := false
 	resultString := ""
+
 	switch task.DBType {
 	case MongoDb:
 		mongoClient, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(task.ConnStr))
@@ -137,9 +258,9 @@ func deleteDBOp(task *tasks.GenericLoadingTask) (string, bool) {
 		}
 		mongoClient.Disconnect(context.TODO())
 	case CouchbaseDb:
-		return "", false
+		return "To be implemented for Couchbase", false
 	case CouchbaseColumnar:
-		return "", false
+    return "To be implemented for Columnar", false
 	case DynamoDb:
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
 			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(task.Username, task.Password, "")),
@@ -157,6 +278,60 @@ func deleteDBOp(task *tasks.GenericLoadingTask) (string, bool) {
 			} else {
 				resultString = "Successful deletion : " + *del.TableDescription.TableName
 			}
+		
+	case CassandraDb:
+		if task.ConnStr == "" || task.Password == "" || task.Username == "" {
+			resultString = "Connection String or Auth Params Empty"
+			break
+		}
+		if task.Extra.Keyspace == "" {
+			resultString = "Keyspace name not provided"
+			break
+		} else if task.Extra.Keyspace != "" && task.Extra.Table == "" {
+			cassClusterConfig := gocql.NewCluster(task.ConnStr)
+			cassClusterConfig.Authenticator = gocql.PasswordAuthenticator{Username: task.Username, Password: task.Password}
+
+			cassandraSession, errCreateSession := cassClusterConfig.CreateSession()
+			if errCreateSession != nil {
+				log.Println("Unable to connect to Cassandra! err:", errCreateSession.Error())
+				resultString += "Unable to connect to Cassandra! err:" + errCreateSession.Error()
+				break
+			}
+			defer cassandraSession.Close()
+
+			dropKeyspaceQuery := fmt.Sprintf("DROP KEYSPACE %s", task.Extra.Keyspace)
+			errDropKeyspace := cassandraSession.Query(dropKeyspaceQuery).Exec()
+			if errDropKeyspace != nil {
+				log.Println("unable to delete keyspace", errDropKeyspace)
+				resultString += errDropKeyspace.Error()
+				break
+			}
+
+			resultString += fmt.Sprintf("Keyspace '%s' deleted successfully.", task.Extra.Keyspace)
+			status = true
+			break
+		} else if task.Extra.Keyspace != "" && task.Extra.Table != "" {
+			cassClusterConfig := gocql.NewCluster(task.ConnStr)
+			cassClusterConfig.Authenticator = gocql.PasswordAuthenticator{Username: task.Username, Password: task.Password}
+			cassClusterConfig.Keyspace = task.Extra.Keyspace
+			cassandraSession, errCreateSession := cassClusterConfig.CreateSession()
+			if errCreateSession != nil {
+				log.Println("Unable to connect to Cassandra! err:", errCreateSession.Error())
+				resultString += "Unable to connect to Cassandra! err:" + errCreateSession.Error()
+				break
+			}
+			defer cassandraSession.Close()
+
+			dropTableQuery := fmt.Sprintf("DROP TABLE %s", task.Extra.Table)
+			errDropTable := cassandraSession.Query(dropTableQuery).Exec()
+			if errDropTable != nil {
+				log.Println("unable to delete table", errDropTable)
+				resultString += errDropTable.Error()
+				break
+			}
+
+			resultString += fmt.Sprintf("Table ' %s ' deleted successfully from Keyspace ' %s '.", task.Extra.Table, task.Extra.Keyspace)
+			status = true
 		}
 	}
 	return resultString, status
@@ -192,9 +367,9 @@ func ListDBOp(task *tasks.GenericLoadingTask) (any, bool) {
 		}
 		mongoClient.Disconnect(context.TODO())
 	case CouchbaseDb:
-		return "", false
+		return "To be implemented for Couchbase", false
 	case CouchbaseColumnar:
-		return "", false
+		return "To be implemented for Columnar", false
 	case DynamoDb:
 		dblist_new := []string{}
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
@@ -215,6 +390,77 @@ func ListDBOp(task *tasks.GenericLoadingTask) (any, bool) {
 				}
 			}
 			dblist[task.ConnStr] = dblist_new
+		}
+		
+	case CassandraDb:
+		if task.ConnStr == "" || task.Password == "" || task.Username == "" {
+			resultString = "Connection String or Auth Params Empty"
+			break
+		}
+		if task.Extra.Keyspace == "" {
+			cassClusterConfig := gocql.NewCluster(task.ConnStr)
+			cassClusterConfig.Authenticator = gocql.PasswordAuthenticator{Username: task.Username, Password: task.Password}
+			cassandraSession, errCreateSession := cassClusterConfig.CreateSession()
+			if errCreateSession != nil {
+				log.Println("Unable to connect to Cassandra! err:", errCreateSession.Error())
+				resultString += "Unable to connect to Cassandra! err:" + errCreateSession.Error()
+				break
+			}
+			defer cassandraSession.Close()
+
+			var keyspaceName string
+			keyspaces := make([]string, 0)
+
+			//listKeyspaceQuery := "SELECT keyspace_name FROM system_schema.keyspaces WHERE keyspace_name != 'system' AND keyspace_name != 'system_traces' AND keyspace_name != 'system_auth' AND keyspace_name != 'system_distributed'"
+			listKeyspaceQuery := "SELECT keyspace_name FROM system_schema.keyspaces"
+			iterKeyspaces := cassandraSession.Query(listKeyspaceQuery).Iter()
+
+			for iterKeyspaces.Scan(&keyspaceName) {
+				keyspaces = append(keyspaces, keyspaceName)
+			}
+			if err := iterKeyspaces.Close(); err != nil {
+				log.Println("error while iterating keyspaces names. err:", err)
+				resultString += err.Error()
+				break
+			}
+			resultString += "Given Cassandra cluster contains the following keyspaces"
+			for _, keyspaceN := range keyspaces {
+				dblist[task.Extra.Keyspace] = append(dblist[task.Extra.Keyspace], keyspaceN)
+			}
+			status = true
+			break
+		}
+		if task.Extra.Table == "" {
+			cassClusterConfig := gocql.NewCluster(task.ConnStr)
+			cassClusterConfig.Authenticator = gocql.PasswordAuthenticator{Username: task.Username, Password: task.Password}
+			cassClusterConfig.Keyspace = task.Extra.Keyspace
+			cassandraSession, errCreateSession := cassClusterConfig.CreateSession()
+			if errCreateSession != nil {
+				log.Println("Unable to connect to Cassandra! err:", errCreateSession.Error())
+				resultString += "Unable to connect to Cassandra! err:" + errCreateSession.Error()
+				break
+			}
+			defer cassandraSession.Close()
+
+			var tableName string
+			tables := make([]string, 0)
+
+			listTableQuery := "SELECT table_name FROM system_schema.tables WHERE keyspace_name = ?"
+			iterTables := cassandraSession.Query(listTableQuery, task.Extra.Keyspace).Iter()
+
+			for iterTables.Scan(&tableName) {
+				tables = append(tables, tableName)
+			}
+			if err := iterTables.Close(); err != nil {
+				log.Println("error while iterating table names. err:", err)
+				resultString += err.Error()
+				break
+			}
+			resultString += task.Extra.Keyspace + " keyspace contains the following tables"
+			for _, tableN := range tables {
+				dblist[task.Extra.Keyspace] = append(dblist[task.Extra.Keyspace], tableN)
+			}
+			status = true
 		}
 
 	}
@@ -265,9 +511,9 @@ func CountOp(task *tasks.GenericLoadingTask) (string, int64, bool) {
 		}
 		mongoClient.Disconnect(context.TODO())
 	case CouchbaseDb:
-		return "", count, false
+		return "To be implemented for Couchbase", count, false
 	case CouchbaseColumnar:
-		return "", count, false
+		return "To be implemented for Columnar", count, false
 	case DynamoDb:
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
 			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(task.Username, task.Password, "")),
@@ -304,6 +550,43 @@ func CountOp(task *tasks.GenericLoadingTask) (string, int64, bool) {
 				status = true
 			}
 		}
+		
+	case CassandraDb:
+		if task.ConnStr == "" || task.Password == "" || task.Username == "" {
+			resultString = "Connection String or Auth Params Empty"
+			break
+		}
+		if task.Extra.Keyspace == "" {
+			resultString = "Keyspace name not provided"
+			break
+		}
+		if task.Extra.Table == "" {
+			resultString = "Table name not provided"
+			break
+		}
+		cassClusterConfig := gocql.NewCluster(task.ConnStr)
+		cassClusterConfig.Authenticator = gocql.PasswordAuthenticator{Username: task.Username, Password: task.Password}
+		cassClusterConfig.Keyspace = task.Extra.Keyspace
+		cassandraSession, errCreateSession := cassClusterConfig.CreateSession()
+		if errCreateSession != nil {
+			log.Println("Unable to connect to Cassandra! err:", errCreateSession.Error())
+			resultString += "Unable to connect to Cassandra! err:" + errCreateSession.Error()
+			break
+		}
+		defer cassandraSession.Close()
+
+		countQuery := "SELECT COUNT(*) FROM " + task.Extra.Table
+		var rowCount int64
+		if errCount := cassandraSession.Query(countQuery).Scan(&rowCount); errCount != nil {
+			log.Println("Error while getting COUNT", errCount)
+			resultString += "Error while getting COUNT"
+			status = false
+			break
+		}
+		resultString += "Count Operation Successful. "
+		resultString += "Count = " + string(rowCount)
+		status = true
+		count = rowCount
 	}
 	return resultString, count, status
 

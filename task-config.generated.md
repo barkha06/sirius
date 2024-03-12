@@ -331,6 +331,12 @@ Description : Warming up a connection to database.
 | `Provisioned` | `bool` | `json:provisioned,omitempty`  |
 | `ReadCapacity` | `int` | `json:readCapacity,omitempty`  |
 | `WriteCapacity` | `int` | `json:writeCapacity,omitempty`  |
+| `Keyspace` | `string` | `json:keyspace,omitempty`  |
+| `Table` | `string` | `json:table,omitempty`  |
+| `NumOfConns` | `int` | `json:numOfConns,omitempty`  |
+| `SubDocPath` | `string` | `json:subDocPath,omitempty`  |
+| `ReplicationFactor` | `int` | `json:replicationFactor,omitempty`  |
+| `CassandraClass` | `string` | `json:cassandraClass,omitempty`  |
 
 ---
 Possible values for durability :-

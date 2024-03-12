@@ -2,6 +2,9 @@ package db
 
 import (
 	"fmt"
+	"github.com/gocql/gocql"
+	"log"
+	"strings"
 
 	"github.com/barkha06/sirius/internal/err_sirius"
 )
@@ -45,6 +48,12 @@ type Extras struct {
 	Provisioned         bool    `json:"provisioned,omitempty" doc:"true"`
 	ReadCapacity        int     `json:"readCapacity,omitempty" doc:"true"`
 	WriteCapacity       int     `json:"writeCapacity,omitempty" doc:"true"`
+	Keyspace            string  `json:"keyspace,omitempty" doc:"true"`
+	Table               string  `json:"table,omitempty" doc:"true"`
+	NumOfConns          int     `json:"numOfConns,omitempty" doc:"true"`
+	SubDocPath          string  `json:"subDocPath,omitempty" doc:"true"`
+	ReplicationFactor   int     `json:"replicationFactor,omitempty" doc:"true"`
+	CassandraClass      string  `json:"cassandraClass,omitempty" doc:"true"`
 }
 
 func validateStrings(values ...string) error {
@@ -54,4 +63,26 @@ func validateStrings(values ...string) error {
 		}
 	}
 	return nil
+}
+
+func cassandraColumnExists(session *gocql.Session, keyspace, tableName, columnName string) bool {
+	keyspaceMetadata, err := session.KeyspaceMetadata(keyspace)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tableMetadata, found := keyspaceMetadata.Tables[tableName]
+	if !found {
+		return false
+	}
+	for _, column := range tableMetadata.Columns {
+		if strings.EqualFold(column.Name, columnName) {
+			return true
+		}
+	}
+	return false
 }

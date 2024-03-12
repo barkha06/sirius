@@ -585,6 +585,8 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 	}
 
 	database, dbErr := db.ConfigDatabase(databaseInfo.DBType)
+	//_, dbErr := db.ConfigDatabase(databaseInfo.DBType)
+
 	if dbErr != nil {
 		result.FailWholeBulkOperation(start, end, dbErr, state, gen, seed)
 		return
@@ -626,6 +628,14 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 		}
 
 	}
+
+	//for _, x := range keyValues {
+	//
+	//	result.IncrementFailure(initTime, x.Key, errors.New("Test"), false, nil, x.Offset)
+	//	state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
+	//
+	//}
+	keyValues = keyValues[:0]
 }
 
 func bulkUpsertDocuments(start int64, end int64, seed int64, operationConfig *OperationConfig, rerun bool,
@@ -929,7 +939,7 @@ func validateDocuments(start, end, seed int64, operationConfig *OperationConfig,
 				} else {
 					res, _ := gen.Template.Compare(bulkResult.Value(x.Key), resultDisplay)
 					if !res {
-						result.IncrementFailure(initTime, x.Key, errors.New("Template Compare Failed  Mongo: "+x.Key+"   columnar:  "+resultDisplay["_id"].(string)), false, bulkResult.GetExtra(x.Key),
+						result.IncrementFailure(initTime, x.Key, errors.New("Template Compare Failed "+databaseInfo.DBType+": "+x.Key+" | columnar:  "+resultDisplay["_id"].(string)), false, bulkResult.GetExtra(x.Key),
 							x.Offset)
 						state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: x.Offset}
 					} else {
@@ -939,5 +949,4 @@ func validateDocuments(start, end, seed int64, operationConfig *OperationConfig,
 			}
 		}
 	}
-
 }
