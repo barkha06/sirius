@@ -327,7 +327,6 @@ Description : Warming up a connection to database.
 | `ColumnarBucket` | `string` | `json:columnarBucket,omitempty`  |
 | `ColumnarScope` | `string` | `json:columnarScope,omitempty`  |
 | `ColumnarCollection` | `string` | `json:columnarCollection,omitempty`  |
-| `Table` | `string` | `json:table,omitempty`  |
 | `Provisioned` | `bool` | `json:provisioned,omitempty`  |
 | `ReadCapacity` | `int` | `json:readCapacity,omitempty`  |
 | `WriteCapacity` | `int` | `json:writeCapacity,omitempty`  |

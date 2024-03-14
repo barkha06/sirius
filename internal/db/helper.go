@@ -54,6 +54,11 @@ type Extras struct {
 	SubDocPath          string  `json:"subDocPath,omitempty" doc:"true"`
 	ReplicationFactor   int     `json:"replicationFactor,omitempty" doc:"true"`
 	CassandraClass      string  `json:"cassandraClass,omitempty" doc:"true"`
+	Port                int     `json:"port,omitempty" doc:"true"`
+	MaxIdleConnections  int     `json:"maxIdleConnections,omitempty" doc:"true"`
+	MaxOpenConnections  int     `json:"maxOpenConnections,omitempty" doc:"true"`
+	MaxIdleTime         int     `json:"maxIdleTime,omitempty" doc:"true"`
+	MaxLifeTime         int     `json:"maxLifeTime,omitempty" doc:"true"`
 }
 
 func validateStrings(values ...string) error {
