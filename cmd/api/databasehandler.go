@@ -17,8 +17,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-
-	"github.com/barkha06/sirius/internal/tasks"
 )
 
 const (
@@ -277,6 +275,7 @@ func deleteDBOp(task *tasks.GenericLoadingTask) (string, bool) {
 				resultString = err.Error()
 			} else {
 				resultString = "Successful deletion : " + *del.TableDescription.TableName
+			}
 			}
 		
 	case CassandraDb:
