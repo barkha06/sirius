@@ -16,7 +16,7 @@ type SqlClusterConfig struct {
 	MaxOpenConnections int    `json:"maxOpenConnections,omitempty"`
 	MaxIdleTime        int    `json:"maxIdleTime,omitempty"`
 	MaxLifeTime        int    `json:"maxLifeTime,omitempty" `
-	Port               int    `json:"port,omitempty" doc:"true"`
+	Port               string `json:"port,omitempty" doc:"true"`
 }
 
 func ValidateClusterConfig(connStr, username, password string, c *SqlClusterConfig) error {

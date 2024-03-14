@@ -43,8 +43,8 @@ func (cm *SqlConnectionManager) getSqlClusterObject(connStr, username, password 
 		if err := ValidateClusterConfig(connStr, username, password, clusterConfig); err != nil {
 			return nil, err
 		}
-		if clusterConfig.Port == 0 {
-			clusterConfig.Port = 3306
+		if clusterConfig.Port == "" {
+			clusterConfig.Port = "3306"
 		}
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", username, password, connStr, clusterConfig.Port, clusterConfig.Database)
 		cluster, err := sql.Open("mysql", dsn)
