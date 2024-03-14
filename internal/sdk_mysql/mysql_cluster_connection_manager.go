@@ -33,7 +33,7 @@ func (cm *SqlConnectionManager) setSqlClusterObject(clusterIdentifier string, c 
 
 // getSqlClusterObject returns *Sql.DB if cluster is already setup.
 // If not, then set up a *Sql.DB
-func (cm *SqlConnectionManager) getSqlClusterObject(connStr, username, password string,
+func (cm *SqlConnectionManager) GetSqlClusterObject(connStr, username, password string,
 	clusterConfig *SqlClusterConfig) (*sql.DB, error) {
 
 	clusterIdentifier := connStr + "/" + clusterConfig.Database
