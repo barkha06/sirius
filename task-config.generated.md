@@ -336,6 +336,11 @@ Description : Warming up a connection to database.
 | `SubDocPath` | `string` | `json:subDocPath,omitempty`  |
 | `ReplicationFactor` | `int` | `json:replicationFactor,omitempty`  |
 | `CassandraClass` | `string` | `json:cassandraClass,omitempty`  |
+| `Port` | `string` | `json:port,omitempty`  |
+| `MaxIdleConnections` | `int` | `json:maxIdleConnections,omitempty`  |
+| `MaxOpenConnections` | `int` | `json:maxOpenConnections,omitempty`  |
+| `MaxIdleTime` | `int` | `json:maxIdleTime,omitempty`  |
+| `MaxLifeTime` | `int` | `json:maxLifeTime,omitempty`  |
 
 ---
 Possible values for durability :-

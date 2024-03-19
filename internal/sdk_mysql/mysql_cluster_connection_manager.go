@@ -53,19 +53,18 @@ func (cm *SqlConnectionManager) GetSqlClusterObject(connStr, username, password 
 			log.Fatal(err)
 			return nil, err
 		}
-		if clusterConfig.MaxIdleTime == 0 {
-			clusterConfig.MaxIdleTime = 5
+		if clusterConfig.MaxIdleTime != 0 {
+			cluster.SetConnMaxIdleTime(time.Duration(clusterConfig.MaxIdleTime) * time.Second)
 		}
-		if clusterConfig.MaxIdleConnections == 0 {
-			clusterConfig.MaxIdleTime = 2
+		if clusterConfig.MaxIdleConnections != 0 {
+			cluster.SetMaxIdleConns(clusterConfig.MaxIdleConnections)
 		}
-		if clusterConfig.MaxOpenConnections == 0 {
-			clusterConfig.MaxIdleTime = 250
+		if clusterConfig.MaxOpenConnections != 0 {
+			cluster.SetMaxOpenConns(clusterConfig.MaxOpenConnections)
 		}
-		cluster.SetConnMaxIdleTime(time.Duration(clusterConfig.MaxIdleTime) * time.Second)
-		cluster.SetConnMaxLifetime(time.Duration(clusterConfig.MaxLifeTime) * time.Second)
-		cluster.SetMaxIdleConns(clusterConfig.MaxIdleConnections)
-		cluster.SetMaxOpenConns(clusterConfig.MaxOpenConnections)
+		if clusterConfig.MaxLifeTime != 0 {
+			cluster.SetConnMaxLifetime(time.Duration(clusterConfig.MaxLifeTime) * time.Second)
+		}
 
 		err = cluster.Ping()
 		if err != nil {
