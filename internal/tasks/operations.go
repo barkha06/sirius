@@ -44,11 +44,7 @@ func insertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
-		sql := false
-		if databaseInfo.DBType == "mysql" {
-			sql = true
-		}
-		doc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize, sql)
+		doc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize)
 		initTime := time.Now().UTC().Format(time.RFC850)
 		operationResult := database.Create(databaseInfo.ConnStr, databaseInfo.Username, databaseInfo.Password, db.KeyValue{
 			Key:    docId,
@@ -107,11 +103,7 @@ func upsertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
 		initTime := time.Now().UTC().Format(time.RFC850)
-		sql := false
-		if databaseInfo.DBType == "mysql" {
-			sql = true
-		}
-		originalDoc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize, false)
+		originalDoc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize)
 		originalDoc, err := retracePreviousMutations(req, identifier, offset, originalDoc, gen, fake,
 			result.ResultSeed)
 		if err != nil {
@@ -121,7 +113,7 @@ func upsertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		}
 
 		docUpdated, err2 := gen.Template.UpdateDocument(operationConfig.FieldsToChange, originalDoc,
-			operationConfig.DocSize, fake, sql)
+			operationConfig.DocSize, fake)
 		if err2 != nil {
 			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: offset}
 			result.IncrementFailure(initTime, docId, err2, false, nil, offset)
@@ -597,10 +589,6 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 		result.FailWholeBulkOperation(start, end, dbErr, state, gen, seed)
 		return
 	}
-	sql := false
-	if databaseInfo.DBType == "mysql" {
-		sql = true
-	}
 	var keyValues []db.KeyValue
 	for offset := start; offset < end; offset++ {
 		if _, ok := skip[offset]; ok {
@@ -611,7 +599,7 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
-		doc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize, sql)
+		doc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize)
 		keyValues = append(keyValues, db.KeyValue{
 			Key:    docId,
 			Doc:    doc,
@@ -669,10 +657,6 @@ func bulkUpsertDocuments(start int64, end int64, seed int64, operationConfig *Op
 		result.FailWholeBulkOperation(start, end, dbErr, state, gen, seed)
 		return
 	}
-	sql := false
-	if databaseInfo.DBType == "mysql" {
-		sql = true
-	}
 	var keyValues []db.KeyValue
 	for offset := start; offset < end; offset++ {
 		if _, ok := skip[offset]; ok {
@@ -683,12 +667,12 @@ func bulkUpsertDocuments(start int64, end int64, seed int64, operationConfig *Op
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
-		originalDoc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize, false)
+		originalDoc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize)
 		originalDoc, _ = retracePreviousMutations(req, identifier, offset, originalDoc, gen, fake,
 			result.ResultSeed)
 
 		docUpdated, _ := gen.Template.UpdateDocument(operationConfig.FieldsToChange, originalDoc,
-			operationConfig.DocSize, fake, sql)
+			operationConfig.DocSize, fake)
 		keyValues = append(keyValues, db.KeyValue{
 			Key:    docId,
 			Doc:    docUpdated,

@@ -227,6 +227,7 @@ func (m Sql) Create(connStr, username, password string, keyValue KeyValue, extra
 	}
 	doc := keyValue.Doc.([]interface{})
 	sqlQuery := fmt.Sprintf("INSERT INTO %s VALUES (%s)", extra.Table, strings.Repeat("?, ", len(doc)-1)+"?")
+
 	result, err2 := sqlClient.ExecContext(context.TODO(), sqlQuery, doc...)
 	if err2 != nil {
 		return newSqlOperationResult(keyValue.Key, keyValue.Doc, err2, false, keyValue.Offset)

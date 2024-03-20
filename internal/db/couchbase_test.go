@@ -54,7 +54,7 @@ func TestCouchbase(t *testing.T) {
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
-		doc := g.Template.GenerateDocument(fake, docId, 10, false)
+		doc := g.Template.GenerateDocument(fake, docId, 10)
 		log.Println(docId, doc)
 		x := db.Update(connStr, username, password, KeyValue{
 			Key:    docId,
@@ -77,7 +77,7 @@ func TestCouchbase(t *testing.T) {
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
-		doc := g.Template.GenerateDocument(fake, docId, 10, false)
+		doc := g.Template.GenerateDocument(fake, docId, 10)
 		x := db.Update(connStr, username, password, KeyValue{
 			Key:    docId,
 			Doc:    doc,
@@ -243,7 +243,7 @@ func TestCouchbase_CreateBulk(t *testing.T) {
 				docId := gen.BuildKey(key)
 				fake := faker.NewFastFaker()
 				fake.Seed(key)
-				doc := gen.Template.GenerateDocument(fake, docId, 10, false)
+				doc := gen.Template.GenerateDocument(fake, docId, 10)
 
 				keyValue = append(keyValue, KeyValue{
 					Key:    docId,
