@@ -69,7 +69,7 @@ func (s *SmallSql) GenerateSubPathAndValue(fake *faker.Faker, subDocSize int) ma
 		"subDocData": fake.Sentence(subDocSize),
 	}
 }
-func (s *SmallSql) GetValues(document interface{}) ([]interface{}, error) {
+func (s *SmallSql) GetValues(document interface{}) (interface{}, error) {
 	small, ok := document.(*SmallSql)
 	if !ok {
 		return nil, fmt.Errorf("unable to decode last updated document to small template")

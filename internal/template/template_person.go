@@ -220,6 +220,6 @@ func (p *Person) GenerateSubPathAndValue(fake *faker.Faker, subDocSize int) map[
 		"_1": strings.Repeat(fake.Letter(), subDocSize),
 	}
 }
-func (p *Person) GetValues(document interface{}) ([]interface{}, error) {
-	return nil, errors.New("Invalid Operation")
+func (p *Person) GetValues(document interface{}) (interface{}, error) {
+	return document, errors.New("Invalid Operation")
 }

@@ -138,7 +138,7 @@ func (h *HotelSql) GenerateSubPathAndValue(fake *faker.Faker, subDocSize int) ma
 		"_1": strings.Repeat(fake.Letter(), subDocSize),
 	}
 }
-func (h *HotelSql) GetValues(document interface{}) ([]interface{}, error) {
+func (h *HotelSql) GetValues(document interface{}) (interface{}, error) {
 	hotel, ok := document.(*HotelSql)
 	if !ok {
 		return nil, fmt.Errorf("unable to decode last updated document to hotel template")

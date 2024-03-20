@@ -112,7 +112,7 @@ func (p *PersonSql) GenerateQueries(bucketName string, scopeName string, collect
 func (p *PersonSql) GenerateIndexesForSdk() (map[string][]string, error) {
 	return map[string][]string{}, errors.New("not implemented")
 }
-func (p *PersonSql) GetValues(document interface{}) ([]interface{}, error) {
+func (p *PersonSql) GetValues(document interface{}) (interface{}, error) {
 	person, ok := document.(*PersonSql)
 	if !ok {
 		return nil, fmt.Errorf("unable to decode last updated document to person template")

@@ -198,6 +198,6 @@ func (h *Hotel) GenerateSubPathAndValue(fake *faker.Faker, subDocSize int) map[s
 		"_1": strings.Repeat(fake.Letter(), subDocSize),
 	}
 }
-func (h *Hotel) GetValues(document interface{}) ([]interface{}, error) {
-	return nil, errors.New("Invalid Operation")
+func (h *Hotel) GetValues(document interface{}) (interface{}, error) {
+	return document, errors.New("Invalid Operation")
 }
