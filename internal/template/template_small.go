@@ -1,7 +1,6 @@
 package template
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -64,5 +63,5 @@ func (s *Small) GenerateSubPathAndValue(fake *faker.Faker, subDocSize int) map[s
 	}
 }
 func (s *Small) GetValues(document interface{}) (interface{}, error) {
-	return document, errors.New("Invalid Operation")
+	return document, nil
 }

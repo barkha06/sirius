@@ -49,12 +49,17 @@ func TestCouchbase(t *testing.T) {
 		Template: template.InitialiseTemplate("person"),
 	}
 	// update
+
 	for i := int64(0); i < int64(10); i++ {
 		key := i + cm1.Seed
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
 		doc := g.Template.GenerateDocument(fake, docId, 10)
+		doc, err = g.Template.GetValues(doc)
+		if err != nil {
+			t.Error(err)
+		}
 		log.Println(docId, doc)
 		x := db.Update(connStr, username, password, KeyValue{
 			Key:    docId,

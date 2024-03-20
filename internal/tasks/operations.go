@@ -44,8 +44,16 @@ func insertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		docId := gen.BuildKey(key)
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
+
 		doc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize)
+		doc, err := gen.Template.GetValues(doc)
 		initTime := time.Now().UTC().Format(time.RFC850)
+		if err != nil {
+			result.IncrementFailure(initTime, docId, err, false, nil, offset)
+			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: offset}
+			continue
+		}
+
 		operationResult := database.Create(databaseInfo.ConnStr, databaseInfo.Username, databaseInfo.Password, db.KeyValue{
 			Key:    docId,
 			Doc:    doc,
@@ -106,17 +114,18 @@ func upsertDocuments(start, end, seed int64, operationConfig *OperationConfig,
 		originalDoc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize)
 		originalDoc, err := retracePreviousMutations(req, identifier, offset, originalDoc, gen, fake,
 			result.ResultSeed)
-		if err != nil {
-			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: offset}
-			result.IncrementFailure(initTime, docId, err, false, nil, offset)
-			continue
-		}
 
 		docUpdated, err2 := gen.Template.UpdateDocument(operationConfig.FieldsToChange, originalDoc,
 			operationConfig.DocSize, fake)
 		if err2 != nil {
 			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: offset}
 			result.IncrementFailure(initTime, docId, err2, false, nil, offset)
+			continue
+		}
+		docUpdated, err = gen.Template.GetValues(docUpdated)
+		if err != nil {
+			result.IncrementFailure(initTime, docId, err, false, nil, offset)
+			state.StateChannel <- task_state.StateHelper{Status: task_state.ERR, Offset: offset}
 			continue
 		}
 
@@ -600,6 +609,11 @@ func bulkInsertDocuments(start, end, seed int64, operationConfig *OperationConfi
 		fake := faker.NewFastFaker()
 		fake.Seed(key)
 		doc := gen.Template.GenerateDocument(fake, docId, operationConfig.DocSize)
+		doc, err := gen.Template.GetValues(doc)
+		if err != nil {
+			result.FailWholeBulkOperation(start, end, err, state, gen, seed)
+			return
+		}
 		keyValues = append(keyValues, db.KeyValue{
 			Key:    docId,
 			Doc:    doc,
@@ -673,6 +687,11 @@ func bulkUpsertDocuments(start int64, end int64, seed int64, operationConfig *Op
 
 		docUpdated, _ := gen.Template.UpdateDocument(operationConfig.FieldsToChange, originalDoc,
 			operationConfig.DocSize, fake)
+		docUpdated, err := gen.Template.GetValues(docUpdated)
+		if err != nil {
+			result.FailWholeBulkOperation(start, end, err, state, gen, seed)
+			return
+		}
 		keyValues = append(keyValues, db.KeyValue{
 			Key:    docId,
 			Doc:    docUpdated,

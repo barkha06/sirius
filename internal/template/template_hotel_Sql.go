@@ -45,7 +45,7 @@ func (h *HotelSql) GenerateDocument(fake *faker.Faker, key string, documentSize 
 	hNew.Name = fake.BeerName()
 	hNew.Email = fake.URL()
 	hNew.Mutated = MutatedPathDefaultValue
-	hNew.Value = []interface{}{&hNew.TemplateType, &hNew.ID, &hNew.Address, &hNew.FreeParking, &hNew.City, &hNew.URL, &hNew.Phone, &hNew.Price, &hNew.AvgRating, &hNew.FreeBreakfast, &hNew.Name,
+	hNew.Value = []interface{}{&hNew.ID, &hNew.Address, &hNew.FreeParking, &hNew.City, &hNew.URL, &hNew.Phone, &hNew.Price, &hNew.AvgRating, &hNew.FreeBreakfast, &hNew.Name,
 		&hNew.Email, &hNew.Padding, &hNew.Mutated}
 
 	return &hNew
